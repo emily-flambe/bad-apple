@@ -120,13 +120,33 @@
   .delta-params { display: flex; gap: 0.75rem; align-items: center; }
   .delta-params input[type="range"] { width: 5rem; }
   .delta-params input[type="range"]:disabled { opacity: 0.3; }
+  [data-tip] {
+    position: relative;
+  }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    color: #ccc;
+    font-size: 0.75rem;
+    font-weight: 400;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid #444;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
   .color-value {
     font-variant-numeric: tabular-nums;
     min-width: 2rem;
     text-align: right;
     font-size: 0.85rem;
   }
-  .canvas-wrap { width: 480px; aspect-ratio: 4/3; }
+  .canvas-wrap { aspect-ratio: 4/3; }
   .spinner {
     position: absolute;
     inset: 0;
@@ -157,43 +177,43 @@
 <div class="controls">
   <div class="control-group">
     <label for="blockSize">Block size:</label>
-    <input type="range" id="blockSize" min="1" max="64" value="32">
-    <span class="block-value" id="blockValue">32</span>
+    <input type="range" id="blockSize" min="1" max="64" value="1">
+    <span class="block-value" id="blockValue">1</span>
   </div>
 </div>
 
 <div class="color-controls">
-  <div class="control-group">
+  <div class="control-group" data-tip="Colorize pixels using the effect sliders below">
     <label><input type="checkbox" id="colorToggle"> Color</label>
   </div>
-  <div class="control-group">
+  <div class="control-group" data-tip="Swap which pixels get colored — dark instead of bright">
     <label><input type="checkbox" id="invertToggle" disabled> Invert</label>
   </div>
-  <div class="control-group">
-    <label class="delta-label"><input type="checkbox" id="deltaToggle" class="delta-check"> Delta</label>
+  <div class="control-group" data-tip="Pixels that change flash red→violet then fade out">
+    <label class="delta-label"><input type="checkbox" id="deltaToggle" class="delta-check"> Linger</label>
   </div>
   <div class="delta-params">
-    <label for="deltaThreshold">Threshold</label>
+    <label for="deltaThreshold" data-tip="How much a pixel must change to trigger">Threshold</label>
     <input type="range" id="deltaThreshold" min="5" max="100" value="30" disabled>
-    <label for="deltaSpeed">Speed</label>
+    <label for="deltaSpeed" data-tip="How fast the color sweeps red→violet">Speed</label>
     <input type="range" id="deltaSpeed" min="20" max="200" value="100" disabled>
   </div>
-  <div class="control-group">
+  <div class="control-group" data-tip="Hue shifts with audio amplitude — quiet is blue, loud is red">
     <label for="audioSlider">Audio</label>
     <input type="range" id="audioSlider" min="0" max="100" value="0" disabled>
     <span class="color-value" id="audioValue">0%</span>
   </div>
-  <div class="control-group">
+  <div class="control-group" data-tip="Hue cycles through the spectrum over the video duration">
     <label for="cycleSlider">Cycle</label>
     <input type="range" id="cycleSlider" min="0" max="100" value="0" disabled>
     <span class="color-value" id="cycleValue">0%</span>
   </div>
-  <div class="control-group">
+  <div class="control-group" data-tip="Hue varies by angle from center — rotates during playback">
     <label for="pinwheelSlider">Pinwheel</label>
     <input type="range" id="pinwheelSlider" min="0" max="100" value="0" disabled>
     <span class="color-value" id="pinwheelValue">0%</span>
   </div>
-  <div class="control-group">
+  <div class="control-group" data-tip="Desaturates color on bass beats for a pulsing effect">
     <label for="beatSlider">Beat</label>
     <input type="range" id="beatSlider" min="0" max="100" value="0" disabled>
     <span class="color-value" id="beatValue">0%</span>
@@ -240,7 +260,7 @@ const deltaToggle = document.getElementById('deltaToggle');
 const deltaThresholdSlider = document.getElementById('deltaThreshold');
 const deltaSpeedSlider = document.getElementById('deltaSpeed');
 
-let blockSize = 32;
+let blockSize = 1;
 let animId = null;
 let isScrubbing = false;
 
@@ -278,10 +298,6 @@ let audioSourceConnected = false;
 
 // Color constants
 const SATURATION = 0.95;
-const PITCH_HZ_MIN = 100;
-const PITCH_HZ_MAX = 1200;
-const LOG_MIN = Math.log(PITCH_HZ_MIN);
-const LOG_MAX = Math.log(PITCH_HZ_MAX);
 
 // Spatial map cache
 let spatialMapCache = null;
@@ -349,24 +365,14 @@ function initAudio() {
   }
 }
 
-function getDominantFrequencyHue() {
-  if (!analyser || !freqData) return 0.375;
+function getAudioAmplitudeHue() {
+  if (!analyser || !freqData) return 0.65;
   analyser.getByteFrequencyData(freqData);
-  const binHz = audioCtx.sampleRate / analyser.fftSize;
-  const minBin = Math.ceil(PITCH_HZ_MIN / binHz);
-  const maxBin = Math.min(Math.floor(PITCH_HZ_MAX / binHz), freqData.length - 1);
-  let maxVal = 0;
-  let maxIdx = minBin;
-  for (let i = minBin; i <= maxBin; i++) {
-    if (freqData[i] > maxVal) {
-      maxVal = freqData[i];
-      maxIdx = i;
-    }
-  }
-  if (maxVal < 10) return 0.375;
-  const hz = maxIdx * binHz;
-  const logHz = Math.log(hz);
-  return ((logHz - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 0.75;
+  let sum = 0;
+  for (let i = 0; i < freqData.length; i++) sum += freqData[i];
+  const avg = sum / freqData.length / 255;
+  // Quiet → blue/cyan (0.65), loud → red (0.0)
+  return 0.65 * (1 - avg);
 }
 
 function getTimeCycleHue() {
@@ -391,21 +397,24 @@ function updateBeat() {
 }
 
 function getSpatialMap(sw, sh) {
-  if (spatialMapCache && spatialMapW === sw && spatialMapH === sh) {
-    return spatialMapCache;
-  }
-  spatialMapCache = new Float32Array(sw * sh);
-  spatialMapW = sw;
-  spatialMapH = sh;
-  const cx = (sw - 1) / 2;
-  const cy = (sh - 1) / 2;
-  for (let y = 0; y < sh; y++) {
-    for (let x = 0; x < sw; x++) {
-      const angle = Math.atan2(y - cy, x - cx) / (2 * Math.PI) + 0.5;
-      spatialMapCache[y * sw + x] = (angle * 6) % 1.0;
+  if (!spatialMapCache || spatialMapW !== sw || spatialMapH !== sh) {
+    spatialMapCache = new Float32Array(sw * sh);
+    spatialMapW = sw;
+    spatialMapH = sh;
+    const cx = (sw - 1) / 2;
+    const cy = (sh - 1) / 2;
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        spatialMapCache[y * sw + x] = Math.atan2(y - cy, x - cx) / (2 * Math.PI) + 0.5;
+      }
     }
   }
   return spatialMapCache;
+}
+
+function getPinwheelHue(baseAngle) {
+  const spin = (video.currentTime || 0) * 0.15;
+  return ((baseAngle * 6 + spin) % 1.0 + 1.0) % 1.0;
 }
 
 function resetDeltaBuffers(sw, sh) {
@@ -485,18 +494,20 @@ function applyDeltaEffect(now) {
       if (age >= totalDuration) continue;
 
       const pi = (py * w + px) * 4;
-      const brightness = (data[pi] * 0.299 + data[pi + 1] * 0.587 + data[pi + 2] * 0.114) / 255;
 
-      let hue, sat;
+      let hue, sat, val;
       if (age < deltaSweepDuration) {
         hue = (age / deltaSweepDuration) * 0.83;
         sat = 1.0;
+        val = 1.0;
       } else {
         hue = 0.83;
-        sat = 1.0 - (age - deltaSweepDuration) / deltaFadeDuration;
+        const fadeProgress = (age - deltaSweepDuration) / deltaFadeDuration;
+        sat = 1.0 - fadeProgress;
+        val = 1.0 - fadeProgress;
       }
 
-      const rgb = hsvToRgb(hue, sat, brightness);
+      const rgb = hsvToRgb(hue, sat, val);
       data[pi] = rgb[0];
       data[pi + 1] = rgb[1];
       data[pi + 2] = rgb[2];
@@ -508,7 +519,7 @@ function applyDeltaEffect(now) {
 function applyColorEffects(targetCtx, w, h) {
   const imgData = targetCtx.getImageData(0, 0, w, h);
   const data = imgData.data;
-  const aHue = audioWeight > 0 ? getDominantFrequencyHue() : 0;
+  const aHue = audioWeight > 0 ? getAudioAmplitudeHue() : 0;
   const tHue = timeWeight > 0 ? getTimeCycleHue() : 0;
   const sMap = spatialWeight > 0 ? getSpatialMap(w, h) : null;
   const hueWeight = audioWeight + timeWeight + spatialWeight;
@@ -523,7 +534,7 @@ function applyColorEffects(targetCtx, w, h) {
     let hue = 0;
     if (audioWeight > 0) hue += aHue * audioWeight;
     if (timeWeight > 0) hue += tHue * timeWeight;
-    if (spatialWeight > 0) hue += sMap[px] * spatialWeight;
+    if (spatialWeight > 0) hue += getPinwheelHue(sMap[px]) * spatialWeight;
     hue = (hue / hueWeight) % 1.0;
     const rgb = hsvToRgb(hue, sat, 1.0);
     data[i] = rgb[0];
