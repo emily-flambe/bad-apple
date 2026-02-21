@@ -12,3 +12,11 @@ _audio_tmp.wav
 
 # Python
 __pycache__/
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+*.tfstate*
+
+# Public deploy assets (video files only — index.html is tracked)
+public/*.mp4
