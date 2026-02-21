@@ -270,7 +270,7 @@ function initAudio() {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.8;
+  analyser.smoothingTimeConstant = 0.6;
   freqData = new Uint8Array(analyser.frequencyBinCount);
   if (!audioSourceConnected) {
     const source = audioCtx.createMediaElementSource(video);
@@ -283,18 +283,19 @@ function initAudio() {
 function getDominantFrequencyHue() {
   if (!analyser || !freqData) return 0.375;
   analyser.getByteFrequencyData(freqData);
+  const binHz = audioCtx.sampleRate / analyser.fftSize;
+  const minBin = Math.ceil(PITCH_HZ_MIN / binHz);
+  const maxBin = Math.min(Math.floor(PITCH_HZ_MAX / binHz), freqData.length - 1);
   let maxVal = 0;
-  let maxIdx = 0;
-  for (let i = 0; i < freqData.length; i++) {
+  let maxIdx = minBin;
+  for (let i = minBin; i <= maxBin; i++) {
     if (freqData[i] > maxVal) {
       maxVal = freqData[i];
       maxIdx = i;
     }
   }
   if (maxVal < 10) return 0.375;
-  const hz = maxIdx * audioCtx.sampleRate / analyser.fftSize;
-  if (hz < PITCH_HZ_MIN) return 0;
-  if (hz > PITCH_HZ_MAX) return 0.75;
+  const hz = maxIdx * binHz;
   const logHz = Math.log(hz);
   return ((logHz - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 0.75;
 }
