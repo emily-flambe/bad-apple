@@ -183,9 +183,6 @@
         <label for="audioSlider" data-tip="Hue shifts with audio amplitude — quiet is blue, loud is red">Audio</label>
         <input type="range" id="audioSlider" min="0" max="100" value="0">
         <span class="color-value" id="audioValue">0%</span>
-        <label for="cycleSlider" data-tip="Hue cycles through the spectrum over the video duration">Cycle</label>
-        <input type="range" id="cycleSlider" min="0" max="100" value="0">
-        <span class="color-value" id="cycleValue">0%</span>
       </div>
     </div>
   </div>
@@ -197,7 +194,7 @@
     <div class="section-body disabled" id="lingerBody">
       <div class="sub-row">
         <label for="deltaSpeed" data-tip="How fast the color sweeps red to violet">Speed</label>
-        <input type="range" id="deltaSpeed" min="20" max="200" value="100">
+        <input type="range" id="deltaSpeed" min="20" max="200" value="120">
         <label for="deltaRange" data-tip="How far through the spectrum the sweep goes (0 = red only, 100 = full)">Range</label>
         <input type="range" id="deltaRange" min="0" max="100" value="100">
       </div>
@@ -211,9 +208,9 @@
     <div class="section-body disabled" id="fireworksBody">
       <div class="sub-row">
         <label for="fireworksIntensity" data-tip="Number of particles per burst">Intensity</label>
-        <input type="range" id="fireworksIntensity" min="1" max="10" value="4">
+        <input type="range" id="fireworksIntensity" min="1" max="10" value="6">
         <label for="fireworksSpread" data-tip="How far particles fly">Spread</label>
-        <input type="range" id="fireworksSpread" min="10" max="100" value="50">
+        <input type="range" id="fireworksSpread" min="10" max="200" value="80">
       </div>
     </div>
   </div>
@@ -248,9 +245,7 @@ const timeDisplay = document.getElementById('timeDisplay');
 const colorToggle = document.getElementById('colorToggle');
 const invertToggle = document.getElementById('invertToggle');
 const audioSlider = document.getElementById('audioSlider');
-const cycleSlider = document.getElementById('cycleSlider');
 const audioValueEl = document.getElementById('audioValue');
-const cycleValueEl = document.getElementById('cycleValue');
 const deltaToggle = document.getElementById('deltaToggle');
 const deltaSpeedSlider = document.getElementById('deltaSpeed');
 const deltaRangeSlider = document.getElementById('deltaRange');
@@ -269,7 +264,6 @@ let isScrubbing = false;
 let colorEnabled = false;
 let invertEnabled = false;
 let audioWeight = 0;
-let timeWeight = 0;
 
 // Delta mode state
 let deltaEnabled = false;
@@ -284,12 +278,12 @@ let deltaRange = 0.83;
 
 // Fireworks state
 let fireworksEnabled = false;
-let fireworksIntensity = 4;
-let fireworksSpread = 50;
+let fireworksIntensity = 6;
+let fireworksSpread = 80;
 let fwLastTimestamp = 0;
-const FW_MAX = 3000;
-const FW_LIFETIME = 0.8;
-const FW_GRAVITY = 120;
+const FW_MAX = 8000;
+const FW_LIFETIME = 1.5;
+const FW_GRAVITY = 80;
 const fwX = new Float32Array(FW_MAX);
 const fwY = new Float32Array(FW_MAX);
 const fwVx = new Float32Array(FW_MAX);
@@ -380,11 +374,6 @@ function getAudioAmplitudeHue() {
   return 0.65 * (1 - avg);
 }
 
-function getTimeCycleHue() {
-  if (!video.duration) return 0;
-  return (video.currentTime / video.duration) % 1.0;
-}
-
 function resetDeltaBuffers(sw, sh) {
   deltaPrevFrame = new Uint8Array(sw * sh);
   deltaChangeAge = new Float32Array(sw * sh);
@@ -412,20 +401,14 @@ function captureBaselineFrame(sw, sh) {
 function applyColorEffects(targetCtx, w, h) {
   const imgData = targetCtx.getImageData(0, 0, w, h);
   const data = imgData.data;
-  const aHue = audioWeight > 0 ? getAudioAmplitudeHue() : 0;
-  const tHue = timeWeight > 0 ? getTimeCycleHue() : 0;
-  const hueWeight = audioWeight + timeWeight;
-  if (hueWeight === 0) return;
+  if (audioWeight === 0) return;
+  const hue = getAudioAmplitudeHue();
   const sat = SATURATION;
 
   for (let i = 0; i < data.length; i += 4) {
     const brightness = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
     const isBright = brightness > 128;
     if (!isBright && !invertEnabled) continue;
-    let hue = 0;
-    if (audioWeight > 0) hue += aHue * audioWeight;
-    if (timeWeight > 0) hue += tHue * timeWeight;
-    hue = (hue / hueWeight) % 1.0;
     const finalHue = (!isBright && invertEnabled) ? (hue + 0.5) % 1.0 : hue;
     const rgb = hsvToRgb(finalHue, sat, 1.0);
     data[i] = rgb[0];
@@ -558,14 +541,22 @@ function fwRender(w, h) {
   for (let i = 0; i < FW_MAX; i++) {
     if (!fwAlive[i]) continue;
     const alpha = 1 - (fwAge[i] / FW_LIFETIME);
-    const px = Math.round(fwX[i]);
-    const py = Math.round(fwY[i]);
-    if (px < 0 || px >= w || py < 0 || py >= h) continue;
-    const pi = (py * w + px) * 4;
+    const cx = Math.round(fwX[i]);
+    const cy = Math.round(fwY[i]);
     const rgb = hsvToRgb(fwHue[i], 0.9, 1.0);
-    data[pi] = data[pi] + (rgb[0] - data[pi]) * alpha;
-    data[pi + 1] = data[pi + 1] + (rgb[1] - data[pi + 1]) * alpha;
-    data[pi + 2] = data[pi + 2] + (rgb[2] - data[pi + 2]) * alpha;
+    for (let dy = -1; dy <= 1; dy++) {
+      const py = cy + dy;
+      if (py < 0 || py >= h) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        const px = cx + dx;
+        if (px < 0 || px >= w) continue;
+        const a = (dx === 0 && dy === 0) ? alpha : alpha * 0.5;
+        const pi = (py * w + px) * 4;
+        data[pi] = data[pi] + (rgb[0] - data[pi]) * a;
+        data[pi + 1] = data[pi + 1] + (rgb[1] - data[pi + 1]) * a;
+        data[pi + 2] = data[pi + 2] + (rgb[2] - data[pi + 2]) * a;
+      }
+    }
   }
   ctx.putImageData(imgData, 0, 0);
 }
@@ -619,7 +610,7 @@ function drawCurrentFrame(now) {
   const h = video.videoHeight;
   if (!w || !h) return;
   const bs = blockSize;
-  const needColor = colorEnabled && (audioWeight > 0 || timeWeight > 0);
+  const needColor = colorEnabled && audioWeight > 0;
   const needDetection = deltaEnabled || fireworksEnabled;
   const bsMax = Math.max(bs, 1);
   const sw = Math.ceil(w / bsMax);
@@ -762,10 +753,6 @@ audioSlider.addEventListener('input', () => {
   audioWeight = audioSlider.value / 100;
   audioValueEl.textContent = audioSlider.value + '%';
 });
-cycleSlider.addEventListener('input', () => {
-  timeWeight = cycleSlider.value / 100;
-  cycleValueEl.textContent = cycleSlider.value + '%';
-});
 invertToggle.addEventListener('change', () => {
   invertEnabled = invertToggle.checked;
 });
@@ -786,7 +773,7 @@ deltaToggle.addEventListener('change', () => {
 
 deltaSpeedSlider.addEventListener('input', () => {
   const val = parseInt(deltaSpeedSlider.value);
-  deltaSweepDuration = val / 100;
+  deltaSweepDuration = (220 - val) / 100;
   deltaFadeDuration = deltaSweepDuration * 0.5;
 });
 
