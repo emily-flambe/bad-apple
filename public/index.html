@@ -213,9 +213,9 @@
     <div class="section-body disabled" id="fireworksBody">
       <div class="sub-row">
         <label for="fireworksIntensity" data-tip="Number of particles per burst">Intensity</label>
-        <input type="range" id="fireworksIntensity" min="1" max="10" value="6">
+        <input type="range" id="fireworksIntensity" min="1" max="20" value="8">
         <label for="fireworksSpread" data-tip="How far particles fly">Spread</label>
-        <input type="range" id="fireworksSpread" min="10" max="200" value="80">
+        <input type="range" id="fireworksSpread" min="10" max="500" value="200">
       </div>
     </div>
   </div>
@@ -286,8 +286,8 @@ let deltaRange = 0.83;
 
 // Fireworks state
 let fireworksEnabled = false;
-let fireworksIntensity = 6;
-let fireworksSpread = 80;
+let fireworksIntensity = 8;
+let fireworksSpread = 200;
 let fwLastTimestamp = 0;
 const FW_MAX = 8000;
 const FW_LIFETIME = 1.5;
@@ -576,34 +576,55 @@ function fwSpawnFromChangedBlocks(w, h, sw, sh) {
   if (colorEnabled) {
     canvasData = ctx.getImageData(0, 0, w, h).data;
   }
-  let spawned = 0;
-  const spawnBudget = FW_MAX;
+  // Collect edge blocks: changed blocks adjacent to unchanged blocks
+  const edges = [];
+  const totalDuration = deltaSweepDuration + deltaFadeDuration;
   for (let by = 0; by < sh; by++) {
     for (let bx = 0; bx < sw; bx++) {
-      if (spawned >= spawnBudget) return;
       const bi = by * sw + bx;
       if (deltaChangeAge[bi] !== 0) continue;
-      const cx = Math.min((bx * bs + bs / 2) | 0, w - 1);
-      const cy = Math.min((by * bs + bs / 2) | 0, h - 1);
-      let hue;
-      if (canvasData) {
-        const pi = (cy * w + cx) * 4;
-        const r = canvasData[pi], g = canvasData[pi + 1], b = canvasData[pi + 2];
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        if (max === min) {
-          hue = 0.08 + Math.random() * 0.08;
-        } else {
-          const d = max - min;
-          if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-          else if (max === g) hue = ((b - r) / d + 2) / 6;
-          else hue = ((r - g) / d + 4) / 6;
-        }
+      // Check if any neighbor is unchanged
+      let isEdge = false;
+      if (bx === 0 || bx === sw - 1 || by === 0 || by === sh - 1) {
+        isEdge = true;
       } else {
-        hue = 0.08 + Math.random() * 0.08;
+        if (deltaChangeAge[bi - 1] >= totalDuration) isEdge = true;
+        else if (deltaChangeAge[bi + 1] >= totalDuration) isEdge = true;
+        else if (deltaChangeAge[bi - sw] >= totalDuration) isEdge = true;
+        else if (deltaChangeAge[bi + sw] >= totalDuration) isEdge = true;
       }
-      fwSpawn(cx, cy, hue, fireworksIntensity, fireworksSpread);
-      spawned += fireworksIntensity;
+      if (isEdge) edges.push(bi);
     }
+  }
+  if (edges.length === 0) return;
+  // Sample a subset of edges to avoid overwhelming the pool
+  const maxSpawnPoints = Math.min(edges.length, Math.ceil(FW_MAX / fireworksIntensity));
+  const step = edges.length <= maxSpawnPoints ? 1 : edges.length / maxSpawnPoints;
+  let spawned = 0;
+  for (let ei = 0; ei < edges.length && spawned < FW_MAX; ei += step) {
+    const bi = edges[ei | 0];
+    const bx = bi % sw;
+    const by = (bi / sw) | 0;
+    const cx = Math.min((bx * bs + bs / 2) | 0, w - 1);
+    const cy = Math.min((by * bs + bs / 2) | 0, h - 1);
+    let hue;
+    if (canvasData) {
+      const pi = (cy * w + cx) * 4;
+      const r = canvasData[pi], g = canvasData[pi + 1], b = canvasData[pi + 2];
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      if (max === min) {
+        hue = 0.08 + Math.random() * 0.08;
+      } else {
+        const d = max - min;
+        if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        else if (max === g) hue = ((b - r) / d + 2) / 6;
+        else hue = ((r - g) / d + 4) / 6;
+      }
+    } else {
+      hue = 0.08 + Math.random() * 0.08;
+    }
+    fwSpawn(cx, cy, hue, fireworksIntensity, fireworksSpread);
+    spawned += fireworksIntensity;
   }
 }
 
