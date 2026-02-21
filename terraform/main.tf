@@ -10,6 +10,11 @@ terraform {
 
 provider "cloudflare" {}
 
+resource "cloudflare_r2_bucket" "video" {
+  account_id = var.cloudflare_account_id
+  name       = "bad-apple-video"
+}
+
 resource "cloudflare_workers_script" "bad_apple" {
   account_id     = var.cloudflare_account_id
   script_name    = "bad-apple"
@@ -20,6 +25,12 @@ resource "cloudflare_workers_script" "bad_apple" {
   assets = {
     directory = "${path.module}/../public"
   }
+
+  bindings = [{
+    type        = "r2_bucket"
+    name        = "VIDEO_BUCKET"
+    bucket_name = cloudflare_r2_bucket.video.name
+  }]
 }
 
 resource "cloudflare_workers_script_subdomain" "bad_apple" {

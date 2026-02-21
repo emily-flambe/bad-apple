@@ -18,5 +18,21 @@ terraform/.terraform/
 terraform/.terraform.lock.hcl
 *.tfstate*
 
+# Node
+node_modules/
+
+# Wrangler
+.wrangler/
+
+# Playwright
+.playwright-mcp/
+
+# Secrets / credentials
+.env*
+*.tfvars
+*.tfvars.json
+*.pem
+*.key
+
 # Public deploy assets (video files only — index.html is tracked)
 public/*.mp4
