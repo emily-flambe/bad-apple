@@ -162,6 +162,9 @@
     <label><input type="checkbox" id="colorToggle"> Color</label>
   </div>
   <div class="control-group">
+    <label><input type="checkbox" id="invertToggle" disabled> Invert</label>
+  </div>
+  <div class="control-group">
     <label for="audioSlider">Audio</label>
     <input type="range" id="audioSlider" min="0" max="100" value="0" disabled>
     <span class="color-value" id="audioValue">0%</span>
@@ -175,6 +178,11 @@
     <label for="pinwheelSlider">Pinwheel</label>
     <input type="range" id="pinwheelSlider" min="0" max="100" value="0" disabled>
     <span class="color-value" id="pinwheelValue">0%</span>
+  </div>
+  <div class="control-group">
+    <label for="beatSlider">Beat</label>
+    <input type="range" id="beatSlider" min="0" max="100" value="0" disabled>
+    <span class="color-value" id="beatValue">0%</span>
   </div>
 </div>
 
@@ -205,12 +213,15 @@ const stopBtn = document.getElementById('stopBtn');
 const scrub = document.getElementById('scrub');
 const timeDisplay = document.getElementById('timeDisplay');
 const colorToggle = document.getElementById('colorToggle');
+const invertToggle = document.getElementById('invertToggle');
 const audioSlider = document.getElementById('audioSlider');
 const cycleSlider = document.getElementById('cycleSlider');
 const pinwheelSlider = document.getElementById('pinwheelSlider');
 const audioValueEl = document.getElementById('audioValue');
 const cycleValueEl = document.getElementById('cycleValue');
 const pinwheelValueEl = document.getElementById('pinwheelValue');
+const beatSlider = document.getElementById('beatSlider');
+const beatValueEl = document.getElementById('beatValue');
 
 let blockSize = 32;
 let animId = null;
@@ -218,9 +229,18 @@ let isScrubbing = false;
 
 // Color state
 let colorEnabled = false;
+let invertEnabled = false;
 let audioWeight = 0;
 let timeWeight = 0;
 let spatialWeight = 0;
+let beatWeight = 0;
+
+// Beat detection state
+let beatEnergy = 0;
+let prevBassEnergy = 0;
+let beatDecay = 0;
+const BEAT_DECAY_RATE = 0.92;
+const BEAT_THRESHOLD = 1.4;
 
 // Audio state
 let audioCtx = null;
@@ -326,6 +346,22 @@ function getTimeCycleHue() {
   return (video.currentTime / video.duration) % 1.0;
 }
 
+function updateBeat() {
+  if (!analyser || !freqData || beatWeight === 0) { beatDecay = 0; return; }
+  analyser.getByteFrequencyData(freqData);
+  const binHz = audioCtx.sampleRate / analyser.fftSize;
+  const bassMaxBin = Math.min(Math.floor(200 / binHz), freqData.length - 1);
+  let bassEnergy = 0;
+  for (let i = 1; i <= bassMaxBin; i++) bassEnergy += freqData[i];
+  bassEnergy /= bassMaxBin;
+  if (prevBassEnergy > 0 && bassEnergy > prevBassEnergy * BEAT_THRESHOLD && bassEnergy > 30) {
+    beatDecay = 1.0;
+  } else {
+    beatDecay *= BEAT_DECAY_RATE;
+  }
+  prevBassEnergy = bassEnergy;
+}
+
 function getSpatialMap(sw, sh) {
   if (spatialMapCache && spatialMapW === sw && spatialMapH === sh) {
     return spatialMapCache;
@@ -337,36 +373,39 @@ function getSpatialMap(sw, sh) {
   const cy = (sh - 1) / 2;
   for (let y = 0; y < sh; y++) {
     for (let x = 0; x < sw; x++) {
-      spatialMapCache[y * sw + x] = Math.atan2(y - cy, x - cx) / (2 * Math.PI) + 0.5;
+      const angle = Math.atan2(y - cy, x - cx) / (2 * Math.PI) + 0.5;
+      spatialMapCache[y * sw + x] = (angle * 6) % 1.0;
     }
   }
   return spatialMapCache;
 }
 
-function applyColorEffects(sw, sh) {
-  const imgData = sctx.getImageData(0, 0, sw, sh);
+function applyColorEffects(targetCtx, w, h) {
+  const imgData = targetCtx.getImageData(0, 0, w, h);
   const data = imgData.data;
   const aHue = audioWeight > 0 ? getDominantFrequencyHue() : 0;
   const tHue = timeWeight > 0 ? getTimeCycleHue() : 0;
-  const sMap = spatialWeight > 0 ? getSpatialMap(sw, sh) : null;
-  const totalWeight = audioWeight + timeWeight + spatialWeight;
-  if (totalWeight === 0) return;
+  const sMap = spatialWeight > 0 ? getSpatialMap(w, h) : null;
+  const hueWeight = audioWeight + timeWeight + spatialWeight;
+  if (hueWeight === 0) return;
+  const sat = SATURATION * (1 - beatWeight * (1 - beatDecay));
 
   for (let i = 0; i < data.length; i += 4) {
     const brightness = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-    if (brightness <= 128) continue;
+    const isBright = brightness > 128;
+    if (invertEnabled ? isBright : !isBright) continue;
     const px = (i / 4) | 0;
     let hue = 0;
     if (audioWeight > 0) hue += aHue * audioWeight;
     if (timeWeight > 0) hue += tHue * timeWeight;
     if (spatialWeight > 0) hue += sMap[px] * spatialWeight;
-    hue = (hue / totalWeight) % 1.0;
-    const rgb = hsvToRgb(hue, SATURATION, 1.0);
+    hue = (hue / hueWeight) % 1.0;
+    const rgb = hsvToRgb(hue, sat, 1.0);
     data[i] = rgb[0];
     data[i + 1] = rgb[1];
     data[i + 2] = rgb[2];
   }
-  sctx.putImageData(imgData, 0, 0);
+  targetCtx.putImageData(imgData, 0, 0);
 }
 
 function drawCurrentFrame() {
@@ -375,17 +414,21 @@ function drawCurrentFrame() {
   if (!w || !h) return;
   const bs = blockSize;
   const needColor = colorEnabled && (audioWeight > 0 || timeWeight > 0 || spatialWeight > 0);
+  if (needColor) updateBeat();
   if (bs <= 1 && !needColor) {
     ctx.drawImage(video, 0, 0, w, h);
+  } else if (bs <= 1) {
+    ctx.drawImage(video, 0, 0, w, h);
+    applyColorEffects(ctx, w, h);
   } else {
-    const sw = bs <= 1 ? w : Math.ceil(w / bs);
-    const sh = bs <= 1 ? h : Math.ceil(h / bs);
+    const sw = Math.ceil(w / bs);
+    const sh = Math.ceil(h / bs);
     small.width = sw;
     small.height = sh;
     sctx.drawImage(video, 0, 0, sw, sh);
-    if (needColor) applyColorEffects(sw, sh);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(small, 0, 0, w, h);
+    if (needColor) applyColorEffects(ctx, w, h);
   }
 }
 
@@ -448,6 +491,8 @@ colorToggle.addEventListener('change', () => {
   audioSlider.disabled = !colorEnabled;
   cycleSlider.disabled = !colorEnabled;
   pinwheelSlider.disabled = !colorEnabled;
+  beatSlider.disabled = !colorEnabled;
+  invertToggle.disabled = !colorEnabled;
   if (colorEnabled) initAudio();
 });
 
@@ -462,6 +507,13 @@ cycleSlider.addEventListener('input', () => {
 pinwheelSlider.addEventListener('input', () => {
   spatialWeight = pinwheelSlider.value / 100;
   pinwheelValueEl.textContent = pinwheelSlider.value + '%';
+});
+beatSlider.addEventListener('input', () => {
+  beatWeight = beatSlider.value / 100;
+  beatValueEl.textContent = beatSlider.value + '%';
+});
+invertToggle.addEventListener('change', () => {
+  invertEnabled = invertToggle.checked;
 });
 
 function renderLoop() {
