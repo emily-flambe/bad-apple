@@ -1,4 +1,14 @@
+# Media files
+media/source/
+media/output/
 *.mp4
+*.wav
+*.png
+
+# Temp directories
 _frames_tmp/
+_pixelate_frames_tmp/
 _audio_tmp.wav
+
+# Python
 __pycache__/

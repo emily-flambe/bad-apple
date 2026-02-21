@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bad Apple Pixelator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    color: #eee;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1.5rem;
+  }
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    letter-spacing: 0.02em;
+  }
+  .controls {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: #1a1a1a;
+    border-radius: 8px;
+    border: 1px solid #333;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  label {
+    font-size: 0.85rem;
+    color: #aaa;
+    white-space: nowrap;
+  }
+  input[type="text"] {
+    background: #222;
+    border: 1px solid #444;
+    color: #eee;
+    padding: 0.35rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    width: 14rem;
+  }
+  input[type="range"] {
+    width: 10rem;
+    accent-color: #888;
+  }
+  .block-value {
+    font-variant-numeric: tabular-nums;
+    min-width: 2.5rem;
+    text-align: right;
+    font-size: 0.85rem;
+  }
+  button {
+    background: #333;
+    color: #eee;
+    border: 1px solid #555;
+    padding: 0.35rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  button:hover { background: #444; }
+  .canvas-wrap {
+    position: relative;
+    background: #000;
+    border-radius: 4px;
+    overflow: hidden;
+    line-height: 0;
+  }
+  canvas { display: block; max-width: 90vw; }
+  video { display: none; }
+</style>
+</head>
+<body>
+
+<h1>Bad Apple Pixelator</h1>
+
+<div class="controls">
+  <div class="control-group">
+    <label for="source">Source:</label>
+    <input type="text" id="source" value="media/source/sample.mp4">
+    <button id="loadBtn">Load</button>
+  </div>
+  <div class="control-group">
+    <label for="blockSize">Block size:</label>
+    <input type="range" id="blockSize" min="1" max="64" value="32">
+    <span class="block-value" id="blockValue">32</span>
+  </div>
+</div>
+
+<div class="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<video id="video" crossorigin="anonymous" playsinline></video>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const sourceInput = document.getElementById('source');
+const loadBtn = document.getElementById('loadBtn');
+const blockSlider = document.getElementById('blockSize');
+const blockValue = document.getElementById('blockValue');
+
+let blockSize = 32;
+let animId = null;
+
+// Offscreen canvas for downsampling
+const small = document.createElement('canvas');
+const sctx = small.getContext('2d');
+
+function loadVideo() {
+  const src = sourceInput.value.trim();
+  if (!src) return;
+  video.src = src;
+  video.load();
+}
+
+video.addEventListener('loadedmetadata', () => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.imageSmoothingEnabled = false;
+  video.play();
+});
+
+video.addEventListener('play', () => {
+  if (animId) cancelAnimationFrame(animId);
+  renderLoop();
+});
+
+video.addEventListener('ended', () => {
+  if (animId) cancelAnimationFrame(animId);
+});
+
+// Click canvas to play/pause
+canvas.addEventListener('click', () => {
+  if (video.paused) video.play();
+  else video.pause();
+});
+
+blockSlider.addEventListener('input', () => {
+  blockSize = parseInt(blockSlider.value);
+  blockValue.textContent = blockSize;
+});
+
+loadBtn.addEventListener('click', loadVideo);
+sourceInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loadVideo();
+});
+
+function renderLoop() {
+  if (video.paused || video.ended) return;
+
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  const bs = blockSize;
+
+  if (bs <= 1) {
+    // No pixelation — draw directly
+    ctx.drawImage(video, 0, 0, w, h);
+  } else {
+    // Draw video into tiny canvas, then scale up with nearest-neighbor
+    const sw = Math.ceil(w / bs);
+    const sh = Math.ceil(h / bs);
+    small.width = sw;
+    small.height = sh;
+    sctx.drawImage(video, 0, 0, sw, sh);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(small, 0, 0, w, h);
+  }
+
+  animId = requestAnimationFrame(renderLoop);
+}
+
+// Auto-load on page open
+loadVideo();
+</script>
+
+</body>
+</html>
