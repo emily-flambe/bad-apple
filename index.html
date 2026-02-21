@@ -600,7 +600,6 @@ function drawCurrentFrame(now) {
 
   // 1. Draw base frame; also prepare small canvas for change detection
   let smallReady = false;
-  if (blurRadius > 0) ctx.filter = `blur(${blurRadius}px)`;
   if (bs > 1) {
     small.width = sw;
     small.height = sh;
@@ -611,7 +610,6 @@ function drawCurrentFrame(now) {
   } else {
     ctx.drawImage(video, 0, 0, w, h);
   }
-  if (blurRadius > 0) ctx.filter = 'none';
 
   // 2. Draw video to small canvas for change detection (skip if already done above)
   if (needDetection && !smallReady) {
@@ -640,6 +638,13 @@ function drawCurrentFrame(now) {
     if (now) fwLastTimestamp = now;
     fwUpdate(fwDt);
     fwRender(w, h);
+  }
+
+  // Final: apply blur to entire composited frame
+  if (blurRadius > 0) {
+    ctx.filter = `blur(${blurRadius}px)`;
+    ctx.drawImage(canvas, 0, 0);
+    ctx.filter = 'none';
   }
 }
 
