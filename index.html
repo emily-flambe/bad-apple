@@ -94,32 +94,22 @@
     overflow: hidden;
     line-height: 0;
   }
-  .color-controls {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-bottom: 1rem;
-    padding: 0.75rem 1.25rem;
-    background: #1a1a1a;
-    border-radius: 8px;
-    border: 1px solid #333;
-  }
-  .color-controls input[type="range"] {
-    width: 7rem;
-  }
-  .color-controls input[type="range"]:disabled {
-    opacity: 0.3;
-  }
-  .color-controls input[type="checkbox"] {
-    accent-color: #e66;
-  }
-  .delta-label { color: #e55; font-weight: 600; }
-  .delta-check { accent-color: #e55; }
-  .delta-params { display: flex; gap: 0.75rem; align-items: center; }
-  .delta-params input[type="range"] { width: 5rem; }
-  .delta-params input[type="range"]:disabled { opacity: 0.3; }
+  .effect-sections { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem; max-width:42rem; width:100%; }
+  .effect-section { background:#1a1a1a; border-radius:8px; border:1px solid #333; padding:0.6rem 1rem; border-left:3px solid #555; }
+  .color-section { border-left-color:#e66; }
+  .linger-section { border-left-color:#e55; }
+  .fireworks-section { border-left-color:#d4a017; }
+  .section-header { display:flex; align-items:center; gap:0.75rem; }
+  .section-header label { font-size:0.9rem; font-weight:600; color:#ddd; cursor:pointer; }
+  .section-header .linger-toggle { color:#e55; }
+  .section-header .fireworks-toggle { color:#d4a017; }
+  .section-body { padding-left:1.5rem; margin-top:0.35rem; }
+  .section-body.disabled { opacity:0.35; pointer-events:none; }
+  .sub-row { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem; }
+  .sub-row input[type="range"] { width:5rem; }
+  .sub-row input[type="checkbox"] { accent-color:#e66; }
+  .linger-section input[type="checkbox"] { accent-color:#e55; }
+  .fireworks-section input[type="checkbox"] { accent-color:#d4a017; }
   [data-tip] {
     position: relative;
   }
@@ -182,41 +172,52 @@
   </div>
 </div>
 
-<div class="color-controls">
-  <div class="control-group" data-tip="Colorize pixels using the effect sliders below">
-    <label><input type="checkbox" id="colorToggle"> Color</label>
+<div class="effect-sections">
+  <div class="effect-section color-section">
+    <div class="section-header">
+      <label data-tip="Colorize pixels using the effect sliders below"><input type="checkbox" id="colorToggle"> Color</label>
+    </div>
+    <div class="section-body disabled" id="colorBody">
+      <div class="sub-row">
+        <label data-tip="Swap which pixels get colored — dark instead of bright"><input type="checkbox" id="invertToggle"> Invert</label>
+        <label for="audioSlider" data-tip="Hue shifts with audio amplitude — quiet is blue, loud is red">Audio</label>
+        <input type="range" id="audioSlider" min="0" max="100" value="0">
+        <span class="color-value" id="audioValue">0%</span>
+        <label for="cycleSlider" data-tip="Hue cycles through the spectrum over the video duration">Cycle</label>
+        <input type="range" id="cycleSlider" min="0" max="100" value="0">
+        <span class="color-value" id="cycleValue">0%</span>
+      </div>
+    </div>
   </div>
-  <div class="control-group" data-tip="Swap which pixels get colored — dark instead of bright">
-    <label><input type="checkbox" id="invertToggle" disabled> Invert</label>
+
+  <div class="effect-section linger-section">
+    <div class="section-header">
+      <label class="linger-toggle" data-tip="Pixels that change flash red to violet then fade out"><input type="checkbox" id="deltaToggle"> Linger</label>
+    </div>
+    <div class="section-body disabled" id="lingerBody">
+      <div class="sub-row">
+        <label for="deltaThreshold" data-tip="How much a pixel must change to trigger">Threshold</label>
+        <input type="range" id="deltaThreshold" min="5" max="100" value="30">
+        <label for="deltaSpeed" data-tip="How fast the color sweeps red to violet">Speed</label>
+        <input type="range" id="deltaSpeed" min="20" max="200" value="100">
+        <label for="deltaRange" data-tip="How far through the spectrum the sweep goes (0 = red only, 100 = full)">Range</label>
+        <input type="range" id="deltaRange" min="0" max="100" value="100">
+      </div>
+    </div>
   </div>
-  <div class="control-group" data-tip="Pixels that change flash red→violet then fade out">
-    <label class="delta-label"><input type="checkbox" id="deltaToggle" class="delta-check"> Linger</label>
-  </div>
-  <div class="delta-params">
-    <label for="deltaThreshold" data-tip="How much a pixel must change to trigger">Threshold</label>
-    <input type="range" id="deltaThreshold" min="5" max="100" value="30" disabled>
-    <label for="deltaSpeed" data-tip="How fast the color sweeps red→violet">Speed</label>
-    <input type="range" id="deltaSpeed" min="20" max="200" value="100" disabled>
-  </div>
-  <div class="control-group" data-tip="Hue shifts with audio amplitude — quiet is blue, loud is red">
-    <label for="audioSlider">Audio</label>
-    <input type="range" id="audioSlider" min="0" max="100" value="0" disabled>
-    <span class="color-value" id="audioValue">0%</span>
-  </div>
-  <div class="control-group" data-tip="Hue cycles through the spectrum over the video duration">
-    <label for="cycleSlider">Cycle</label>
-    <input type="range" id="cycleSlider" min="0" max="100" value="0" disabled>
-    <span class="color-value" id="cycleValue">0%</span>
-  </div>
-  <div class="control-group" data-tip="Hue varies by angle from center — rotates during playback">
-    <label for="pinwheelSlider">Pinwheel</label>
-    <input type="range" id="pinwheelSlider" min="0" max="100" value="0" disabled>
-    <span class="color-value" id="pinwheelValue">0%</span>
-  </div>
-  <div class="control-group" data-tip="Desaturates color on bass beats for a pulsing effect">
-    <label for="beatSlider">Beat</label>
-    <input type="range" id="beatSlider" min="0" max="100" value="0" disabled>
-    <span class="color-value" id="beatValue">0%</span>
+
+  <div class="effect-section fireworks-section">
+    <div class="section-header">
+      <label class="fireworks-toggle" data-tip="Particles burst from pixels that change"><input type="checkbox" id="fireworksToggle"> Fireworks</label>
+    </div>
+    <div class="section-body disabled" id="fireworksBody">
+      <div class="sub-row">
+        <label for="fireworksIntensity" data-tip="Number of particles per burst">Intensity</label>
+        <input type="range" id="fireworksIntensity" min="1" max="10" value="4">
+        <label for="fireworksSpread" data-tip="How far particles fly">Spread</label>
+        <input type="range" id="fireworksSpread" min="10" max="100" value="50">
+      </div>
+    </div>
   </div>
 </div>
 
@@ -250,15 +251,18 @@ const colorToggle = document.getElementById('colorToggle');
 const invertToggle = document.getElementById('invertToggle');
 const audioSlider = document.getElementById('audioSlider');
 const cycleSlider = document.getElementById('cycleSlider');
-const pinwheelSlider = document.getElementById('pinwheelSlider');
 const audioValueEl = document.getElementById('audioValue');
 const cycleValueEl = document.getElementById('cycleValue');
-const pinwheelValueEl = document.getElementById('pinwheelValue');
-const beatSlider = document.getElementById('beatSlider');
-const beatValueEl = document.getElementById('beatValue');
 const deltaToggle = document.getElementById('deltaToggle');
 const deltaThresholdSlider = document.getElementById('deltaThreshold');
 const deltaSpeedSlider = document.getElementById('deltaSpeed');
+const deltaRangeSlider = document.getElementById('deltaRange');
+const colorBody = document.getElementById('colorBody');
+const lingerBody = document.getElementById('lingerBody');
+const fireworksBody = document.getElementById('fireworksBody');
+const fireworksToggle = document.getElementById('fireworksToggle');
+const fireworksIntensitySlider = document.getElementById('fireworksIntensity');
+const fireworksSpreadSlider = document.getElementById('fireworksSpread');
 
 let blockSize = 1;
 let animId = null;
@@ -269,15 +273,6 @@ let colorEnabled = false;
 let invertEnabled = false;
 let audioWeight = 0;
 let timeWeight = 0;
-let spatialWeight = 0;
-let beatWeight = 0;
-
-// Beat detection state
-let beatEnergy = 0;
-let prevBassEnergy = 0;
-let beatDecay = 0;
-const BEAT_DECAY_RATE = 0.92;
-const BEAT_THRESHOLD = 1.4;
 
 // Delta mode state
 let deltaEnabled = false;
@@ -289,6 +284,25 @@ let deltaChangeAge = null;
 let deltaPrevSw = 0;
 let deltaPrevSh = 0;
 let deltaLastTimestamp = 0;
+let deltaRange = 0.83;
+
+// Fireworks state
+let fireworksEnabled = false;
+let fireworksIntensity = 4;
+let fireworksSpread = 50;
+let fwLastTimestamp = 0;
+const FW_MAX = 3000;
+const FW_LIFETIME = 0.8;
+const FW_GRAVITY = 120;
+const fwX = new Float32Array(FW_MAX);
+const fwY = new Float32Array(FW_MAX);
+const fwVx = new Float32Array(FW_MAX);
+const fwVy = new Float32Array(FW_MAX);
+const fwHue = new Float32Array(FW_MAX);
+const fwAge = new Float32Array(FW_MAX);
+const fwAlive = new Uint8Array(FW_MAX);
+let fwCount = 0;
+let fwNextSlot = 0;
 
 // Audio state
 let audioCtx = null;
@@ -298,11 +312,6 @@ let audioSourceConnected = false;
 
 // Color constants
 const SATURATION = 0.95;
-
-// Spatial map cache
-let spatialMapCache = null;
-let spatialMapW = 0;
-let spatialMapH = 0;
 
 // Offscreen canvas for downsampling
 const small = document.createElement('canvas');
@@ -371,50 +380,13 @@ function getAudioAmplitudeHue() {
   let sum = 0;
   for (let i = 0; i < freqData.length; i++) sum += freqData[i];
   const avg = sum / freqData.length / 255;
-  // Quiet → blue/cyan (0.65), loud → red (0.0)
+  // Quiet -> blue/cyan (0.65), loud -> red (0.0)
   return 0.65 * (1 - avg);
 }
 
 function getTimeCycleHue() {
   if (!video.duration) return 0;
   return (video.currentTime / video.duration) % 1.0;
-}
-
-function updateBeat() {
-  if (!analyser || !freqData || beatWeight === 0) { beatDecay = 0; return; }
-  analyser.getByteFrequencyData(freqData);
-  const binHz = audioCtx.sampleRate / analyser.fftSize;
-  const bassMaxBin = Math.min(Math.floor(200 / binHz), freqData.length - 1);
-  let bassEnergy = 0;
-  for (let i = 1; i <= bassMaxBin; i++) bassEnergy += freqData[i];
-  bassEnergy /= bassMaxBin;
-  if (prevBassEnergy > 0 && bassEnergy > prevBassEnergy * BEAT_THRESHOLD && bassEnergy > 30) {
-    beatDecay = 1.0;
-  } else {
-    beatDecay *= BEAT_DECAY_RATE;
-  }
-  prevBassEnergy = bassEnergy;
-}
-
-function getSpatialMap(sw, sh) {
-  if (!spatialMapCache || spatialMapW !== sw || spatialMapH !== sh) {
-    spatialMapCache = new Float32Array(sw * sh);
-    spatialMapW = sw;
-    spatialMapH = sh;
-    const cx = (sw - 1) / 2;
-    const cy = (sh - 1) / 2;
-    for (let y = 0; y < sh; y++) {
-      for (let x = 0; x < sw; x++) {
-        spatialMapCache[y * sw + x] = Math.atan2(y - cy, x - cx) / (2 * Math.PI) + 0.5;
-      }
-    }
-  }
-  return spatialMapCache;
-}
-
-function getPinwheelHue(baseAngle) {
-  const spin = (video.currentTime || 0) * 0.15;
-  return ((baseAngle * 6 + spin) % 1.0 + 1.0) % 1.0;
 }
 
 function resetDeltaBuffers(sw, sh) {
@@ -441,14 +413,33 @@ function captureBaselineFrame(sw, sh) {
   }
 }
 
-function applyDeltaEffect(now) {
-  const w = video.videoWidth;
-  const h = video.videoHeight;
-  if (!w || !h) return;
-  const bs = Math.max(blockSize, 1);
-  const sw = Math.ceil(w / bs);
-  const sh = Math.ceil(h / bs);
+function applyColorEffects(targetCtx, w, h) {
+  const imgData = targetCtx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+  const aHue = audioWeight > 0 ? getAudioAmplitudeHue() : 0;
+  const tHue = timeWeight > 0 ? getTimeCycleHue() : 0;
+  const hueWeight = audioWeight + timeWeight;
+  if (hueWeight === 0) return;
+  const sat = SATURATION;
 
+  for (let i = 0; i < data.length; i += 4) {
+    const brightness = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    const isBright = brightness > 128;
+    if (!isBright && !invertEnabled) continue;
+    let hue = 0;
+    if (audioWeight > 0) hue += aHue * audioWeight;
+    if (timeWeight > 0) hue += tHue * timeWeight;
+    hue = (hue / hueWeight) % 1.0;
+    const finalHue = (!isBright && invertEnabled) ? (hue + 0.5) % 1.0 : hue;
+    const rgb = hsvToRgb(finalHue, sat, 1.0);
+    data[i] = rgb[0];
+    data[i + 1] = rgb[1];
+    data[i + 2] = rgb[2];
+  }
+  targetCtx.putImageData(imgData, 0, 0);
+}
+
+function detectChangedBlocks(now, sw, sh) {
   if (!deltaPrevFrame || deltaPrevSw !== sw || deltaPrevSh !== sh) {
     resetDeltaBuffers(sw, sh);
   }
@@ -478,10 +469,24 @@ function applyDeltaEffect(now) {
     if (deltaChangeAge[i] < totalDuration) anyActive = true;
   }
 
-  // Early exit if nothing is active
+  return anyActive;
+}
+
+function applyLingerOverlay(w, h) {
+  const bs = Math.max(blockSize, 1);
+  const sw = deltaPrevSw;
+  const sh = deltaPrevSh;
+  if (!sw || !sh || !deltaChangeAge) return;
+
+  const totalDuration = deltaSweepDuration + deltaFadeDuration;
+
+  // Check if anything is active
+  let anyActive = false;
+  for (let i = 0; i < sw * sh; i++) {
+    if (deltaChangeAge[i] < totalDuration) { anyActive = true; break; }
+  }
   if (!anyActive) return;
 
-  // Apply colors on main canvas
   const imgData = ctx.getImageData(0, 0, w, h);
   const data = imgData.data;
 
@@ -497,11 +502,11 @@ function applyDeltaEffect(now) {
 
       let hue, sat, val;
       if (age < deltaSweepDuration) {
-        hue = (age / deltaSweepDuration) * 0.83;
+        hue = (age / deltaSweepDuration) * deltaRange;
         sat = 1.0;
         val = 1.0;
       } else {
-        hue = 0.83;
+        hue = deltaRange;
         const fadeProgress = (age - deltaSweepDuration) / deltaFadeDuration;
         sat = 1.0 - fadeProgress;
         val = 1.0 - fadeProgress;
@@ -516,32 +521,101 @@ function applyDeltaEffect(now) {
   ctx.putImageData(imgData, 0, 0);
 }
 
-function applyColorEffects(targetCtx, w, h) {
-  const imgData = targetCtx.getImageData(0, 0, w, h);
-  const data = imgData.data;
-  const aHue = audioWeight > 0 ? getAudioAmplitudeHue() : 0;
-  const tHue = timeWeight > 0 ? getTimeCycleHue() : 0;
-  const sMap = spatialWeight > 0 ? getSpatialMap(w, h) : null;
-  const hueWeight = audioWeight + timeWeight + spatialWeight;
-  if (hueWeight === 0) return;
-  const sat = SATURATION * (1 - beatWeight * (1 - beatDecay));
-
-  for (let i = 0; i < data.length; i += 4) {
-    const brightness = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-    const isBright = brightness > 128;
-    if (invertEnabled ? isBright : !isBright) continue;
-    const px = (i / 4) | 0;
-    let hue = 0;
-    if (audioWeight > 0) hue += aHue * audioWeight;
-    if (timeWeight > 0) hue += tHue * timeWeight;
-    if (spatialWeight > 0) hue += getPinwheelHue(sMap[px]) * spatialWeight;
-    hue = (hue / hueWeight) % 1.0;
-    const rgb = hsvToRgb(hue, sat, 1.0);
-    data[i] = rgb[0];
-    data[i + 1] = rgb[1];
-    data[i + 2] = rgb[2];
+function fwSpawn(cx, cy, hue, count, spreadMag) {
+  for (let j = 0; j < count; j++) {
+    const slot = fwNextSlot;
+    if (fwAlive[slot]) {
+      fwCount--;
+    }
+    const angle = Math.random() * Math.PI * 2;
+    const speed = (0.5 + Math.random() * 0.5) * spreadMag;
+    fwX[slot] = cx;
+    fwY[slot] = cy;
+    fwVx[slot] = Math.cos(angle) * speed;
+    fwVy[slot] = Math.sin(angle) * speed;
+    fwHue[slot] = hue;
+    fwAge[slot] = 0;
+    fwAlive[slot] = 1;
+    fwCount++;
+    fwNextSlot = (fwNextSlot + 1) % FW_MAX;
   }
-  targetCtx.putImageData(imgData, 0, 0);
+}
+
+function fwUpdate(dt) {
+  for (let i = 0; i < FW_MAX; i++) {
+    if (!fwAlive[i]) continue;
+    fwVy[i] += FW_GRAVITY * dt;
+    fwX[i] += fwVx[i] * dt;
+    fwY[i] += fwVy[i] * dt;
+    fwAge[i] += dt;
+    if (fwAge[i] >= FW_LIFETIME) {
+      fwAlive[i] = 0;
+      fwCount--;
+    }
+  }
+}
+
+function fwRender(w, h) {
+  if (fwCount <= 0) return;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+  for (let i = 0; i < FW_MAX; i++) {
+    if (!fwAlive[i]) continue;
+    const alpha = 1 - (fwAge[i] / FW_LIFETIME);
+    const px = Math.round(fwX[i]);
+    const py = Math.round(fwY[i]);
+    if (px < 0 || px >= w || py < 0 || py >= h) continue;
+    const pi = (py * w + px) * 4;
+    const rgb = hsvToRgb(fwHue[i], 0.9, 1.0);
+    data[pi] = data[pi] + (rgb[0] - data[pi]) * alpha;
+    data[pi + 1] = data[pi + 1] + (rgb[1] - data[pi + 1]) * alpha;
+    data[pi + 2] = data[pi + 2] + (rgb[2] - data[pi + 2]) * alpha;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function fwSpawnFromChangedBlocks(w, h, sw, sh) {
+  if (!deltaChangeAge) return;
+  const bs = Math.max(blockSize, 1);
+  let canvasData = null;
+  if (colorEnabled) {
+    canvasData = ctx.getImageData(0, 0, w, h).data;
+  }
+  let spawned = 0;
+  const spawnBudget = FW_MAX;
+  for (let by = 0; by < sh; by++) {
+    for (let bx = 0; bx < sw; bx++) {
+      if (spawned >= spawnBudget) return;
+      const bi = by * sw + bx;
+      if (deltaChangeAge[bi] !== 0) continue;
+      const cx = Math.min((bx * bs + bs / 2) | 0, w - 1);
+      const cy = Math.min((by * bs + bs / 2) | 0, h - 1);
+      let hue;
+      if (canvasData) {
+        const pi = (cy * w + cx) * 4;
+        const r = canvasData[pi], g = canvasData[pi + 1], b = canvasData[pi + 2];
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        if (max === min) {
+          hue = 0.08 + Math.random() * 0.08;
+        } else {
+          const d = max - min;
+          if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+          else if (max === g) hue = ((b - r) / d + 2) / 6;
+          else hue = ((r - g) / d + 4) / 6;
+        }
+      } else {
+        hue = 0.08 + Math.random() * 0.08;
+      }
+      fwSpawn(cx, cy, hue, fireworksIntensity, fireworksSpread);
+      spawned += fireworksIntensity;
+    }
+  }
+}
+
+function resetFireworks() {
+  fwAlive.fill(0);
+  fwCount = 0;
+  fwNextSlot = 0;
 }
 
 function drawCurrentFrame(now) {
@@ -549,36 +623,57 @@ function drawCurrentFrame(now) {
   const h = video.videoHeight;
   if (!w || !h) return;
   const bs = blockSize;
-  const needColor = colorEnabled && !deltaEnabled && (audioWeight > 0 || timeWeight > 0 || spatialWeight > 0);
-  if (needColor) updateBeat();
-  if (deltaEnabled) {
-    // Delta mode always uses the small-canvas path for block comparison
-    const sw = Math.ceil(w / Math.max(bs, 1));
-    const sh = Math.ceil(h / Math.max(bs, 1));
+  const needColor = colorEnabled && (audioWeight > 0 || timeWeight > 0);
+  const needDetection = deltaEnabled || fireworksEnabled;
+  const bsMax = Math.max(bs, 1);
+  const sw = Math.ceil(w / bsMax);
+  const sh = Math.ceil(h / bsMax);
+
+  // 1. Draw base frame; also prepare small canvas for change detection
+  let smallReady = false;
+  if (bs > 1) {
     small.width = sw;
     small.height = sh;
     sctx.drawImage(video, 0, 0, sw, sh);
-    if (bs > 1) {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(small, 0, 0, w, h);
-    } else {
-      ctx.drawImage(video, 0, 0, w, h);
-    }
-    applyDeltaEffect(now);
-  } else if (bs <= 1 && !needColor) {
-    ctx.drawImage(video, 0, 0, w, h);
-  } else if (bs <= 1) {
-    ctx.drawImage(video, 0, 0, w, h);
-    applyColorEffects(ctx, w, h);
-  } else {
-    const sw = Math.ceil(w / bs);
-    const sh = Math.ceil(h / bs);
-    small.width = sw;
-    small.height = sh;
-    sctx.drawImage(video, 0, 0, sw, sh);
+    smallReady = true;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(small, 0, 0, w, h);
-    if (needColor) applyColorEffects(ctx, w, h);
+  } else {
+    ctx.drawImage(video, 0, 0, w, h);
+  }
+
+  // 2. Draw video to small canvas for change detection (skip if already done above)
+  if (needDetection && !smallReady) {
+    small.width = sw;
+    small.height = sh;
+    sctx.drawImage(video, 0, 0, sw, sh);
+  }
+
+  // 3. Color effects on main canvas
+  if (needColor) {
+    applyColorEffects(ctx, w, h);
+  }
+
+  // 4. Change detection (shared by linger and fireworks)
+  if (needDetection) {
+    detectChangedBlocks(now || performance.now(), sw, sh);
+  }
+
+  // 5. Linger overlay
+  if (deltaEnabled) {
+    applyLingerOverlay(w, h);
+  }
+
+  // 6. Fireworks: spawn, update, render
+  if (fireworksEnabled) {
+    fwSpawnFromChangedBlocks(w, h, sw, sh);
+    let fwDt = 0;
+    if (now && fwLastTimestamp > 0) {
+      fwDt = Math.min((now - fwLastTimestamp) / 1000, 0.1);
+    }
+    if (now) fwLastTimestamp = now;
+    fwUpdate(fwDt);
+    fwRender(w, h);
   }
 }
 
@@ -613,12 +708,13 @@ pauseBtn.addEventListener('click', () => video.pause());
 stopBtn.addEventListener('click', () => {
   video.pause();
   video.currentTime = 0;
-  if (deltaEnabled) {
+  if (deltaEnabled || fireworksEnabled) {
     const bs = Math.max(blockSize, 1);
     const sw = Math.ceil(video.videoWidth / bs);
     const sh = Math.ceil(video.videoHeight / bs);
     if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
   }
+  resetFireworks();
   updateTime();
   drawCurrentFrame();
 });
@@ -628,12 +724,13 @@ scrub.addEventListener('input', () => {
   isScrubbing = true;
   if (video.duration) {
     video.currentTime = (scrub.value / 1000) * video.duration;
-    if (deltaEnabled) {
+    if (deltaEnabled || fireworksEnabled) {
       const bs = Math.max(blockSize, 1);
       const sw = Math.ceil(video.videoWidth / bs);
       const sh = Math.ceil(video.videoHeight / bs);
       if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
     }
+    resetFireworks();
     drawCurrentFrame();
     updateTime();
   }
@@ -645,28 +742,23 @@ scrub.addEventListener('change', () => {
 blockSlider.addEventListener('input', () => {
   blockSize = parseInt(blockSlider.value);
   blockValue.textContent = blockSize;
-  if (deltaEnabled) {
+  if (deltaEnabled || fireworksEnabled) {
     const bs = Math.max(blockSize, 1);
     const sw = Math.ceil(video.videoWidth / bs);
     const sh = Math.ceil(video.videoHeight / bs);
     if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
   }
+  resetFireworks();
 });
 
 // Color controls
 colorToggle.addEventListener('change', () => {
   colorEnabled = colorToggle.checked;
-  audioSlider.disabled = !colorEnabled;
-  cycleSlider.disabled = !colorEnabled;
-  pinwheelSlider.disabled = !colorEnabled;
-  beatSlider.disabled = !colorEnabled;
-  invertToggle.disabled = !colorEnabled;
   if (colorEnabled) {
-    deltaToggle.checked = false;
-    deltaEnabled = false;
-    deltaThresholdSlider.disabled = true;
-    deltaSpeedSlider.disabled = true;
+    colorBody.classList.remove('disabled');
     initAudio();
+  } else {
+    colorBody.classList.add('disabled');
   }
 });
 
@@ -678,34 +770,21 @@ cycleSlider.addEventListener('input', () => {
   timeWeight = cycleSlider.value / 100;
   cycleValueEl.textContent = cycleSlider.value + '%';
 });
-pinwheelSlider.addEventListener('input', () => {
-  spatialWeight = pinwheelSlider.value / 100;
-  pinwheelValueEl.textContent = pinwheelSlider.value + '%';
-});
-beatSlider.addEventListener('input', () => {
-  beatWeight = beatSlider.value / 100;
-  beatValueEl.textContent = beatSlider.value + '%';
-});
 invertToggle.addEventListener('change', () => {
   invertEnabled = invertToggle.checked;
 });
 
+// Linger controls
 deltaToggle.addEventListener('change', () => {
   deltaEnabled = deltaToggle.checked;
-  deltaThresholdSlider.disabled = !deltaEnabled;
-  deltaSpeedSlider.disabled = !deltaEnabled;
   if (deltaEnabled) {
-    colorToggle.checked = false;
-    colorEnabled = false;
-    audioSlider.disabled = true;
-    cycleSlider.disabled = true;
-    pinwheelSlider.disabled = true;
-    beatSlider.disabled = true;
-    invertToggle.disabled = true;
+    lingerBody.classList.remove('disabled');
     const bs = Math.max(blockSize, 1);
     const sw = Math.ceil(video.videoWidth / bs);
     const sh = Math.ceil(video.videoHeight / bs);
     if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
+  } else {
+    lingerBody.classList.add('disabled');
   }
 });
 
@@ -717,6 +796,37 @@ deltaSpeedSlider.addEventListener('input', () => {
   const val = parseInt(deltaSpeedSlider.value);
   deltaSweepDuration = val / 100;
   deltaFadeDuration = deltaSweepDuration * 0.5;
+});
+
+deltaRangeSlider.addEventListener('input', () => {
+  deltaRange = (parseInt(deltaRangeSlider.value) / 100) * 0.83;
+});
+
+// Fireworks controls
+fireworksToggle.addEventListener('change', () => {
+  fireworksEnabled = fireworksToggle.checked;
+  if (fireworksEnabled) {
+    fireworksBody.classList.remove('disabled');
+    // Ensure change detection buffers exist
+    const bs = Math.max(blockSize, 1);
+    const sw = Math.ceil(video.videoWidth / bs);
+    const sh = Math.ceil(video.videoHeight / bs);
+    if (!deltaPrevFrame || deltaPrevSw !== sw || deltaPrevSh !== sh) {
+      if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
+    }
+    fwLastTimestamp = 0;
+  } else {
+    fireworksBody.classList.add('disabled');
+    resetFireworks();
+  }
+});
+
+fireworksIntensitySlider.addEventListener('input', () => {
+  fireworksIntensity = parseInt(fireworksIntensitySlider.value);
+});
+
+fireworksSpreadSlider.addEventListener('input', () => {
+  fireworksSpread = parseInt(fireworksSpreadSlider.value);
 });
 
 function renderLoop(timestamp) {
