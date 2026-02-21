@@ -264,9 +264,11 @@ let fireworksEnabled = false;
 let fireworksIntensity = 8;
 let fireworksSpread = 200;
 let fwLastTimestamp = 0;
-const FW_MAX = 8000;
-const FW_LIFETIME = 1.5;
-const FW_GRAVITY = 80;
+const FW_MAX = 12000;
+const FW_LIFETIME = 2.0;
+const FW_GRAVITY = 40;
+const FW_SPLIT_AGE = 0.35;
+const FW_MAX_GEN = 3;
 const fwX = new Float32Array(FW_MAX);
 const fwY = new Float32Array(FW_MAX);
 const fwVx = new Float32Array(FW_MAX);
@@ -274,6 +276,8 @@ const fwVy = new Float32Array(FW_MAX);
 const fwHue = new Float32Array(FW_MAX);
 const fwAge = new Float32Array(FW_MAX);
 const fwAlive = new Uint8Array(FW_MAX);
+const fwGen = new Uint8Array(FW_MAX);
+const fwSplit = new Uint8Array(FW_MAX);
 let fwCount = 0;
 let fwNextSlot = 0;
 
@@ -442,27 +446,29 @@ function applyLingerOverlay(w, h) {
   ctx.putImageData(imgData, 0, 0);
 }
 
-function fwSpawn(cx, cy, hue, count, spreadMag) {
+function fwSpawn(cx, cy, hue, count, spreadMag, gen) {
+  gen = gen || 0;
   for (let j = 0; j < count; j++) {
     const slot = fwNextSlot;
-    if (fwAlive[slot]) {
-      fwCount--;
-    }
+    if (fwAlive[slot]) fwCount--;
     const angle = Math.random() * Math.PI * 2;
     const speed = (0.5 + Math.random() * 0.5) * spreadMag;
     fwX[slot] = cx;
     fwY[slot] = cy;
     fwVx[slot] = Math.cos(angle) * speed;
     fwVy[slot] = Math.sin(angle) * speed;
-    fwHue[slot] = hue;
+    fwHue[slot] = hue + (Math.random() - 0.5) * 0.05;
     fwAge[slot] = 0;
     fwAlive[slot] = 1;
+    fwGen[slot] = gen;
+    fwSplit[slot] = 0;
     fwCount++;
     fwNextSlot = (fwNextSlot + 1) % FW_MAX;
   }
 }
 
 function fwUpdate(dt) {
+  const toSplit = [];
   for (let i = 0; i < FW_MAX; i++) {
     if (!fwAlive[i]) continue;
     fwVy[i] += FW_GRAVITY * dt;
@@ -472,6 +478,37 @@ function fwUpdate(dt) {
     if (fwAge[i] >= FW_LIFETIME) {
       fwAlive[i] = 0;
       fwCount--;
+      continue;
+    }
+    // Branching: split once per generation at FW_SPLIT_AGE
+    if (!fwSplit[i] && fwGen[i] < FW_MAX_GEN && fwAge[i] >= FW_SPLIT_AGE) {
+      fwSplit[i] = 1;
+      toSplit.push(i);
+    }
+  }
+  // Spawn children from split particles
+  for (let k = 0; k < toSplit.length && fwCount < FW_MAX - 4; k++) {
+    const i = toSplit[k];
+    const vx = fwVx[i], vy = fwVy[i];
+    const speed = Math.sqrt(vx * vx + vy * vy) * 0.7;
+    const baseAngle = Math.atan2(vy, vx);
+    const gen = fwGen[i] + 1;
+    // Fork into 2 children at ~40 degree spread
+    for (let b = -1; b <= 1; b += 2) {
+      const a = baseAngle + b * (0.3 + Math.random() * 0.4);
+      const slot = fwNextSlot;
+      if (fwAlive[slot]) fwCount--;
+      fwX[slot] = fwX[i];
+      fwY[slot] = fwY[i];
+      fwVx[slot] = Math.cos(a) * speed;
+      fwVy[slot] = Math.sin(a) * speed;
+      fwHue[slot] = fwHue[i] + (Math.random() - 0.5) * 0.03;
+      fwAge[slot] = 0;
+      fwAlive[slot] = 1;
+      fwGen[slot] = gen;
+      fwSplit[slot] = 0;
+      fwCount++;
+      fwNextSlot = (fwNextSlot + 1) % FW_MAX;
     }
   }
 }
@@ -545,6 +582,8 @@ function fwSpawnFromChangedBlocks(w, h, sw, sh) {
 
 function resetFireworks() {
   fwAlive.fill(0);
+  fwGen.fill(0);
+  fwSplit.fill(0);
   fwCount = 0;
   fwNextSlot = 0;
 }
