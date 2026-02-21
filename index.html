@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bad Apple Pixelator</title>
+<title>Bad Apple!!: the applening</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -115,6 +115,11 @@
   .color-controls input[type="checkbox"] {
     accent-color: #e66;
   }
+  .delta-label { color: #e55; font-weight: 600; }
+  .delta-check { accent-color: #e55; }
+  .delta-params { display: flex; gap: 0.75rem; align-items: center; }
+  .delta-params input[type="range"] { width: 5rem; }
+  .delta-params input[type="range"]:disabled { opacity: 0.3; }
   .color-value {
     font-variant-numeric: tabular-nums;
     min-width: 2rem;
@@ -147,7 +152,7 @@
 </head>
 <body>
 
-<h1>Bad Apple Pixelator</h1>
+<h1>Bad Apple!!: the applening</h1>
 
 <div class="controls">
   <div class="control-group">
@@ -163,6 +168,15 @@
   </div>
   <div class="control-group">
     <label><input type="checkbox" id="invertToggle" disabled> Invert</label>
+  </div>
+  <div class="control-group">
+    <label class="delta-label"><input type="checkbox" id="deltaToggle" class="delta-check"> Delta</label>
+  </div>
+  <div class="delta-params">
+    <label for="deltaThreshold">Threshold</label>
+    <input type="range" id="deltaThreshold" min="5" max="100" value="30" disabled>
+    <label for="deltaSpeed">Speed</label>
+    <input type="range" id="deltaSpeed" min="20" max="200" value="100" disabled>
   </div>
   <div class="control-group">
     <label for="audioSlider">Audio</label>
@@ -222,6 +236,9 @@ const cycleValueEl = document.getElementById('cycleValue');
 const pinwheelValueEl = document.getElementById('pinwheelValue');
 const beatSlider = document.getElementById('beatSlider');
 const beatValueEl = document.getElementById('beatValue');
+const deltaToggle = document.getElementById('deltaToggle');
+const deltaThresholdSlider = document.getElementById('deltaThreshold');
+const deltaSpeedSlider = document.getElementById('deltaSpeed');
 
 let blockSize = 32;
 let animId = null;
@@ -241,6 +258,17 @@ let prevBassEnergy = 0;
 let beatDecay = 0;
 const BEAT_DECAY_RATE = 0.92;
 const BEAT_THRESHOLD = 1.4;
+
+// Delta mode state
+let deltaEnabled = false;
+let deltaThreshold = 30;
+let deltaSweepDuration = 1.0;
+let deltaFadeDuration = 0.5;
+let deltaPrevFrame = null;
+let deltaChangeAge = null;
+let deltaPrevSw = 0;
+let deltaPrevSh = 0;
+let deltaLastTimestamp = 0;
 
 // Audio state
 let audioCtx = null;
@@ -380,6 +408,103 @@ function getSpatialMap(sw, sh) {
   return spatialMapCache;
 }
 
+function resetDeltaBuffers(sw, sh) {
+  deltaPrevFrame = new Uint8Array(sw * sh);
+  deltaChangeAge = new Float32Array(sw * sh);
+  deltaChangeAge.fill(10.0);
+  deltaPrevSw = sw;
+  deltaPrevSh = sh;
+  deltaLastTimestamp = 0;
+  captureBaselineFrame(sw, sh);
+}
+
+function captureBaselineFrame(sw, sh) {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) return;
+  small.width = sw;
+  small.height = sh;
+  sctx.drawImage(video, 0, 0, sw, sh);
+  const img = sctx.getImageData(0, 0, sw, sh);
+  const d = img.data;
+  for (let i = 0; i < sw * sh; i++) {
+    deltaPrevFrame[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+  }
+}
+
+function applyDeltaEffect(now) {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) return;
+  const bs = Math.max(blockSize, 1);
+  const sw = Math.ceil(w / bs);
+  const sh = Math.ceil(h / bs);
+
+  if (!deltaPrevFrame || deltaPrevSw !== sw || deltaPrevSh !== sh) {
+    resetDeltaBuffers(sw, sh);
+  }
+
+  // Compute delta time, clamped
+  let dt = 0;
+  if (deltaLastTimestamp > 0) {
+    dt = Math.min((now - deltaLastTimestamp) / 1000, 0.1);
+  }
+  deltaLastTimestamp = now;
+
+  // Read small canvas grayscale and compare
+  const sImg = sctx.getImageData(0, 0, sw, sh);
+  const sd = sImg.data;
+  let anyActive = false;
+  const totalDuration = deltaSweepDuration + deltaFadeDuration;
+
+  for (let i = 0; i < sw * sh; i++) {
+    const gray = (sd[i * 4] * 0.299 + sd[i * 4 + 1] * 0.587 + sd[i * 4 + 2] * 0.114) | 0;
+    const diff = Math.abs(gray - deltaPrevFrame[i]);
+    if (diff > deltaThreshold) {
+      deltaChangeAge[i] = 0;
+    } else {
+      deltaChangeAge[i] += dt;
+    }
+    deltaPrevFrame[i] = gray;
+    if (deltaChangeAge[i] < totalDuration) anyActive = true;
+  }
+
+  // Early exit if nothing is active
+  if (!anyActive) return;
+
+  // Apply colors on main canvas
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  for (let py = 0; py < h; py++) {
+    const by = Math.min((py / bs) | 0, sh - 1);
+    for (let px = 0; px < w; px++) {
+      const bx = Math.min((px / bs) | 0, sw - 1);
+      const bi = by * sw + bx;
+      const age = deltaChangeAge[bi];
+      if (age >= totalDuration) continue;
+
+      const pi = (py * w + px) * 4;
+      const brightness = (data[pi] * 0.299 + data[pi + 1] * 0.587 + data[pi + 2] * 0.114) / 255;
+
+      let hue, sat;
+      if (age < deltaSweepDuration) {
+        hue = (age / deltaSweepDuration) * 0.83;
+        sat = 1.0;
+      } else {
+        hue = 0.83;
+        sat = 1.0 - (age - deltaSweepDuration) / deltaFadeDuration;
+      }
+
+      const rgb = hsvToRgb(hue, sat, brightness);
+      data[pi] = rgb[0];
+      data[pi + 1] = rgb[1];
+      data[pi + 2] = rgb[2];
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
 function applyColorEffects(targetCtx, w, h) {
   const imgData = targetCtx.getImageData(0, 0, w, h);
   const data = imgData.data;
@@ -408,14 +533,28 @@ function applyColorEffects(targetCtx, w, h) {
   targetCtx.putImageData(imgData, 0, 0);
 }
 
-function drawCurrentFrame() {
+function drawCurrentFrame(now) {
   const w = video.videoWidth;
   const h = video.videoHeight;
   if (!w || !h) return;
   const bs = blockSize;
-  const needColor = colorEnabled && (audioWeight > 0 || timeWeight > 0 || spatialWeight > 0);
+  const needColor = colorEnabled && !deltaEnabled && (audioWeight > 0 || timeWeight > 0 || spatialWeight > 0);
   if (needColor) updateBeat();
-  if (bs <= 1 && !needColor) {
+  if (deltaEnabled) {
+    // Delta mode always uses the small-canvas path for block comparison
+    const sw = Math.ceil(w / Math.max(bs, 1));
+    const sh = Math.ceil(h / Math.max(bs, 1));
+    small.width = sw;
+    small.height = sh;
+    sctx.drawImage(video, 0, 0, sw, sh);
+    if (bs > 1) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(small, 0, 0, w, h);
+    } else {
+      ctx.drawImage(video, 0, 0, w, h);
+    }
+    applyDeltaEffect(now);
+  } else if (bs <= 1 && !needColor) {
     ctx.drawImage(video, 0, 0, w, h);
   } else if (bs <= 1) {
     ctx.drawImage(video, 0, 0, w, h);
@@ -463,6 +602,12 @@ pauseBtn.addEventListener('click', () => video.pause());
 stopBtn.addEventListener('click', () => {
   video.pause();
   video.currentTime = 0;
+  if (deltaEnabled) {
+    const bs = Math.max(blockSize, 1);
+    const sw = Math.ceil(video.videoWidth / bs);
+    const sh = Math.ceil(video.videoHeight / bs);
+    if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
+  }
   updateTime();
   drawCurrentFrame();
 });
@@ -472,6 +617,12 @@ scrub.addEventListener('input', () => {
   isScrubbing = true;
   if (video.duration) {
     video.currentTime = (scrub.value / 1000) * video.duration;
+    if (deltaEnabled) {
+      const bs = Math.max(blockSize, 1);
+      const sw = Math.ceil(video.videoWidth / bs);
+      const sh = Math.ceil(video.videoHeight / bs);
+      if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
+    }
     drawCurrentFrame();
     updateTime();
   }
@@ -483,6 +634,12 @@ scrub.addEventListener('change', () => {
 blockSlider.addEventListener('input', () => {
   blockSize = parseInt(blockSlider.value);
   blockValue.textContent = blockSize;
+  if (deltaEnabled) {
+    const bs = Math.max(blockSize, 1);
+    const sw = Math.ceil(video.videoWidth / bs);
+    const sh = Math.ceil(video.videoHeight / bs);
+    if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
+  }
 });
 
 // Color controls
@@ -493,7 +650,13 @@ colorToggle.addEventListener('change', () => {
   pinwheelSlider.disabled = !colorEnabled;
   beatSlider.disabled = !colorEnabled;
   invertToggle.disabled = !colorEnabled;
-  if (colorEnabled) initAudio();
+  if (colorEnabled) {
+    deltaToggle.checked = false;
+    deltaEnabled = false;
+    deltaThresholdSlider.disabled = true;
+    deltaSpeedSlider.disabled = true;
+    initAudio();
+  }
 });
 
 audioSlider.addEventListener('input', () => {
@@ -516,9 +679,38 @@ invertToggle.addEventListener('change', () => {
   invertEnabled = invertToggle.checked;
 });
 
-function renderLoop() {
+deltaToggle.addEventListener('change', () => {
+  deltaEnabled = deltaToggle.checked;
+  deltaThresholdSlider.disabled = !deltaEnabled;
+  deltaSpeedSlider.disabled = !deltaEnabled;
+  if (deltaEnabled) {
+    colorToggle.checked = false;
+    colorEnabled = false;
+    audioSlider.disabled = true;
+    cycleSlider.disabled = true;
+    pinwheelSlider.disabled = true;
+    beatSlider.disabled = true;
+    invertToggle.disabled = true;
+    const bs = Math.max(blockSize, 1);
+    const sw = Math.ceil(video.videoWidth / bs);
+    const sh = Math.ceil(video.videoHeight / bs);
+    if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
+  }
+});
+
+deltaThresholdSlider.addEventListener('input', () => {
+  deltaThreshold = parseInt(deltaThresholdSlider.value);
+});
+
+deltaSpeedSlider.addEventListener('input', () => {
+  const val = parseInt(deltaSpeedSlider.value);
+  deltaSweepDuration = val / 100;
+  deltaFadeDuration = deltaSweepDuration * 0.5;
+});
+
+function renderLoop(timestamp) {
   if (video.paused || video.ended) return;
-  drawCurrentFrame();
+  drawCurrentFrame(timestamp);
   animId = requestAnimationFrame(renderLoop);
 }
 
