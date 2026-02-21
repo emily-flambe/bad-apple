@@ -1,0 +1,4 @@
+*.mp4
+_frames_tmp/
+_audio_tmp.wav
+__pycache__/
