@@ -170,6 +170,11 @@
     <input type="range" id="blockSize" min="1" max="64" value="1">
     <span class="block-value" id="blockValue">1</span>
   </div>
+  <div class="control-group">
+    <label for="blurSize">Blur:</label>
+    <input type="range" id="blurSize" min="0" max="64" value="0">
+    <span class="block-value" id="blurValue">0</span>
+  </div>
 </div>
 
 <div class="effect-sections">
@@ -237,6 +242,8 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const blockSlider = document.getElementById('blockSize');
 const blockValue = document.getElementById('blockValue');
+const blurSlider = document.getElementById('blurSize');
+const blurValueEl = document.getElementById('blurValue');
 const playBtn = document.getElementById('playBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const stopBtn = document.getElementById('stopBtn');
@@ -257,6 +264,7 @@ const fireworksIntensitySlider = document.getElementById('fireworksIntensity');
 const fireworksSpreadSlider = document.getElementById('fireworksSpread');
 
 let blockSize = 1;
+let blurRadius = 0;
 let animId = null;
 let isScrubbing = false;
 
@@ -618,6 +626,7 @@ function drawCurrentFrame(now) {
 
   // 1. Draw base frame; also prepare small canvas for change detection
   let smallReady = false;
+  if (blurRadius > 0) ctx.filter = `blur(${blurRadius}px)`;
   if (bs > 1) {
     small.width = sw;
     small.height = sh;
@@ -628,6 +637,7 @@ function drawCurrentFrame(now) {
   } else {
     ctx.drawImage(video, 0, 0, w, h);
   }
+  if (blurRadius > 0) ctx.filter = 'none';
 
   // 2. Draw video to small canvas for change detection (skip if already done above)
   if (needDetection && !smallReady) {
@@ -736,6 +746,11 @@ blockSlider.addEventListener('input', () => {
     if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
   }
   resetFireworks();
+});
+
+blurSlider.addEventListener('input', () => {
+  blurRadius = parseInt(blurSlider.value);
+  blurValueEl.textContent = blurRadius;
 });
 
 // Color controls
