@@ -96,7 +96,6 @@
   }
   .effect-sections { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem; max-width:42rem; width:100%; }
   .effect-section { background:#1a1a1a; border-radius:8px; border:1px solid #333; padding:0.6rem 1rem; border-left:3px solid #555; }
-  .color-section { border-left-color:#e66; }
   .linger-section { border-left-color:#e55; }
   .fireworks-section { border-left-color:#d4a017; }
   .section-header { display:flex; align-items:center; gap:0.75rem; }
@@ -107,7 +106,7 @@
   .section-body.disabled { opacity:0.35; pointer-events:none; }
   .sub-row { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem; }
   .sub-row input[type="range"] { width:5rem; }
-  .sub-row input[type="checkbox"] { accent-color:#e66; }
+  .sub-row input[type="checkbox"] { accent-color:#e55; }
   .linger-section input[type="checkbox"] { accent-color:#e55; }
   .sub-row input[type="color"] { width:2rem; height:1.5rem; border:1px solid #555; border-radius:4px; background:#1a1a1a; cursor:pointer; padding:1px; }
   .fireworks-section input[type="checkbox"] { accent-color:#d4a017; }
@@ -130,12 +129,6 @@
     white-space: nowrap;
     z-index: 10;
     pointer-events: none;
-  }
-  .color-value {
-    font-variant-numeric: tabular-nums;
-    min-width: 2rem;
-    text-align: right;
-    font-size: 0.85rem;
   }
   .canvas-wrap { aspect-ratio: 4/3; }
   .spinner {
@@ -179,20 +172,6 @@
 </div>
 
 <div class="effect-sections">
-  <div class="effect-section color-section">
-    <div class="section-header">
-      <label data-tip="Colorize pixels using the effect sliders below"><input type="checkbox" id="colorToggle"> Color</label>
-    </div>
-    <div class="section-body disabled" id="colorBody">
-      <div class="sub-row">
-        <label data-tip="Swap which pixels get colored — dark instead of bright"><input type="checkbox" id="invertToggle"> Invert</label>
-        <label for="audioSlider" data-tip="Hue shifts with audio amplitude — quiet is blue, loud is red">Audio</label>
-        <input type="range" id="audioSlider" min="0" max="100" value="0">
-        <span class="color-value" id="audioValue">0%</span>
-      </div>
-    </div>
-  </div>
-
   <div class="effect-section linger-section">
     <div class="section-header">
       <label class="linger-toggle" data-tip="Pixels that change flash red to violet then fade out"><input type="checkbox" id="deltaToggle"> Linger</label>
@@ -252,15 +231,10 @@ const pauseBtn = document.getElementById('pauseBtn');
 const stopBtn = document.getElementById('stopBtn');
 const scrub = document.getElementById('scrub');
 const timeDisplay = document.getElementById('timeDisplay');
-const colorToggle = document.getElementById('colorToggle');
-const invertToggle = document.getElementById('invertToggle');
-const audioSlider = document.getElementById('audioSlider');
-const audioValueEl = document.getElementById('audioValue');
 const deltaToggle = document.getElementById('deltaToggle');
 const deltaSpeedSlider = document.getElementById('deltaSpeed');
 const deltaColorStartEl = document.getElementById('deltaColorStart');
 const deltaColorEndEl = document.getElementById('deltaColorEnd');
-const colorBody = document.getElementById('colorBody');
 const lingerBody = document.getElementById('lingerBody');
 const fireworksBody = document.getElementById('fireworksBody');
 const fireworksToggle = document.getElementById('fireworksToggle');
@@ -272,10 +246,6 @@ let blurRadius = 0;
 let animId = null;
 let isScrubbing = false;
 
-// Color state
-let colorEnabled = false;
-let invertEnabled = false;
-let audioWeight = 0;
 
 // Delta mode state
 let deltaEnabled = false;
@@ -307,14 +277,6 @@ const fwAlive = new Uint8Array(FW_MAX);
 let fwCount = 0;
 let fwNextSlot = 0;
 
-// Audio state
-let audioCtx = null;
-let analyser = null;
-let freqData = null;
-let audioSourceConnected = false;
-
-// Color constants
-const SATURATION = 0.95;
 
 // Offscreen canvas for downsampling
 const small = document.createElement('canvas');
@@ -373,34 +335,6 @@ function hsvToRgb(h, s, v) {
   return [(r * 255) | 0, (g * 255) | 0, (b * 255) | 0];
 }
 
-function initAudio() {
-  if (audioCtx) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    return;
-  }
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.6;
-  freqData = new Uint8Array(analyser.frequencyBinCount);
-  if (!audioSourceConnected) {
-    const source = audioCtx.createMediaElementSource(video);
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    audioSourceConnected = true;
-  }
-}
-
-function getAudioAmplitudeHue() {
-  if (!analyser || !freqData) return 0.65;
-  analyser.getByteFrequencyData(freqData);
-  let sum = 0;
-  for (let i = 0; i < freqData.length; i++) sum += freqData[i];
-  const avg = sum / freqData.length / 255;
-  // Quiet -> blue/cyan (0.65), loud -> red (0.0)
-  return 0.65 * (1 - avg);
-}
-
 function resetDeltaBuffers(sw, sh) {
   deltaPrevFrame = new Uint8Array(sw * sh);
   deltaChangeAge = new Float32Array(sw * sh);
@@ -423,26 +357,6 @@ function captureBaselineFrame(sw, sh) {
   for (let i = 0; i < sw * sh; i++) {
     deltaPrevFrame[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
   }
-}
-
-function applyColorEffects(targetCtx, w, h) {
-  const imgData = targetCtx.getImageData(0, 0, w, h);
-  const data = imgData.data;
-  if (audioWeight === 0) return;
-  const hue = getAudioAmplitudeHue();
-  const sat = SATURATION;
-
-  for (let i = 0; i < data.length; i += 4) {
-    const brightness = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-    const isBright = brightness > 128;
-    if (!isBright && !invertEnabled) continue;
-    const finalHue = (!isBright && invertEnabled) ? (hue + 0.5) % 1.0 : hue;
-    const rgb = hsvToRgb(finalHue, sat, 1.0);
-    data[i] = rgb[0];
-    data[i + 1] = rgb[1];
-    data[i + 2] = rgb[2];
-  }
-  targetCtx.putImageData(imgData, 0, 0);
 }
 
 function detectChangedBlocks(now, sw, sh) {
@@ -592,10 +506,6 @@ function fwRender(w, h) {
 function fwSpawnFromChangedBlocks(w, h, sw, sh) {
   if (!deltaChangeAge) return;
   const bs = Math.max(blockSize, 1);
-  let canvasData = null;
-  if (colorEnabled) {
-    canvasData = ctx.getImageData(0, 0, w, h).data;
-  }
   // Collect edge blocks: changed blocks adjacent to unchanged blocks
   const edges = [];
   const totalDuration = deltaSweepDuration + deltaFadeDuration;
@@ -627,22 +537,7 @@ function fwSpawnFromChangedBlocks(w, h, sw, sh) {
     const by = (bi / sw) | 0;
     const cx = Math.min((bx * bs + bs / 2) | 0, w - 1);
     const cy = Math.min((by * bs + bs / 2) | 0, h - 1);
-    let hue;
-    if (canvasData) {
-      const pi = (cy * w + cx) * 4;
-      const r = canvasData[pi], g = canvasData[pi + 1], b = canvasData[pi + 2];
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      if (max === min) {
-        hue = 0.08 + Math.random() * 0.08;
-      } else {
-        const d = max - min;
-        if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-        else if (max === g) hue = ((b - r) / d + 2) / 6;
-        else hue = ((r - g) / d + 4) / 6;
-      }
-    } else {
-      hue = 0.08 + Math.random() * 0.08;
-    }
+    const hue = 0.08 + Math.random() * 0.08;
     fwSpawn(cx, cy, hue, fireworksIntensity, fireworksSpread);
     spawned += fireworksIntensity;
   }
@@ -659,7 +554,6 @@ function drawCurrentFrame(now) {
   const h = video.videoHeight;
   if (!w || !h) return;
   const bs = blockSize;
-  const needColor = colorEnabled && audioWeight > 0;
   const needDetection = deltaEnabled || fireworksEnabled;
   const bsMax = Math.max(bs, 1);
   const sw = Math.ceil(w / bsMax);
@@ -687,12 +581,7 @@ function drawCurrentFrame(now) {
     sctx.drawImage(video, 0, 0, sw, sh);
   }
 
-  // 3. Color effects on main canvas
-  if (needColor) {
-    applyColorEffects(ctx, w, h);
-  }
-
-  // 4. Change detection (shared by linger and fireworks)
+  // 3. Change detection (shared by linger and fireworks)
   if (needDetection) {
     detectChangedBlocks(now || performance.now(), sw, sh);
   }
@@ -739,7 +628,6 @@ video.addEventListener('timeupdate', updateTime);
 
 // Transport controls
 playBtn.addEventListener('click', () => {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   video.play();
 });
 pauseBtn.addEventListener('click', () => video.pause());
@@ -792,25 +680,6 @@ blockSlider.addEventListener('input', () => {
 blurSlider.addEventListener('input', () => {
   blurRadius = parseInt(blurSlider.value);
   blurValueEl.textContent = blurRadius;
-});
-
-// Color controls
-colorToggle.addEventListener('change', () => {
-  colorEnabled = colorToggle.checked;
-  if (colorEnabled) {
-    colorBody.classList.remove('disabled');
-    initAudio();
-  } else {
-    colorBody.classList.add('disabled');
-  }
-});
-
-audioSlider.addEventListener('input', () => {
-  audioWeight = audioSlider.value / 100;
-  audioValueEl.textContent = audioSlider.value + '%';
-});
-invertToggle.addEventListener('change', () => {
-  invertEnabled = invertToggle.checked;
 });
 
 // Linger controls
