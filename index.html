@@ -196,8 +196,6 @@
     </div>
     <div class="section-body disabled" id="lingerBody">
       <div class="sub-row">
-        <label for="deltaThreshold" data-tip="How much a pixel must change to trigger">Threshold</label>
-        <input type="range" id="deltaThreshold" min="5" max="100" value="30">
         <label for="deltaSpeed" data-tip="How fast the color sweeps red to violet">Speed</label>
         <input type="range" id="deltaSpeed" min="20" max="200" value="100">
         <label for="deltaRange" data-tip="How far through the spectrum the sweep goes (0 = red only, 100 = full)">Range</label>
@@ -254,7 +252,6 @@ const cycleSlider = document.getElementById('cycleSlider');
 const audioValueEl = document.getElementById('audioValue');
 const cycleValueEl = document.getElementById('cycleValue');
 const deltaToggle = document.getElementById('deltaToggle');
-const deltaThresholdSlider = document.getElementById('deltaThreshold');
 const deltaSpeedSlider = document.getElementById('deltaSpeed');
 const deltaRangeSlider = document.getElementById('deltaRange');
 const colorBody = document.getElementById('colorBody');
@@ -276,7 +273,6 @@ let timeWeight = 0;
 
 // Delta mode state
 let deltaEnabled = false;
-let deltaThreshold = 30;
 let deltaSweepDuration = 1.0;
 let deltaFadeDuration = 0.5;
 let deltaPrevFrame = null;
@@ -460,7 +456,7 @@ function detectChangedBlocks(now, sw, sh) {
   for (let i = 0; i < sw * sh; i++) {
     const gray = (sd[i * 4] * 0.299 + sd[i * 4 + 1] * 0.587 + sd[i * 4 + 2] * 0.114) | 0;
     const diff = Math.abs(gray - deltaPrevFrame[i]);
-    if (diff > deltaThreshold) {
+    if (diff > 30) {
       deltaChangeAge[i] = 0;
     } else {
       deltaChangeAge[i] += dt;
@@ -786,10 +782,6 @@ deltaToggle.addEventListener('change', () => {
   } else {
     lingerBody.classList.add('disabled');
   }
-});
-
-deltaThresholdSlider.addEventListener('input', () => {
-  deltaThreshold = parseInt(deltaThresholdSlider.value);
 });
 
 deltaSpeedSlider.addEventListener('input', () => {
