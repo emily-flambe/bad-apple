@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bad Apple!!: the applening</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍎</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -174,7 +175,7 @@
 <body>
 
 <h1>Bad Apple!!: the applening</h1>
-<a href="https://www.youtube.com/watch?v=0n3jW9vlH70" target="_blank" rel="noopener" style="font-size:0.75rem;color:#666;margin-top:-0.75rem;margin-bottom:0.75rem;text-decoration:none;">source</a>
+<a href="https://www.youtube.com/watch?v=FtutLA63Cp8" target="_blank" rel="noopener" style="font-size:0.75rem;color:#666;margin-top:-0.75rem;margin-bottom:0.75rem;text-decoration:none;">source</a>
 
 <div class="controls">
   <div class="control-group">
@@ -1031,30 +1032,52 @@ stopBtn.addEventListener('click', () => {
   drawCurrentFrame();
 });
 
-// Scrub bar — use pointer events to track interaction state (no race conditions)
-scrub.addEventListener('pointerdown', () => { isScrubbing = true; });
-window.addEventListener('pointerup', () => {
-  if (isScrubbing) {
+// Scrub bar — fully custom pointer handling (bypasses native range step behavior)
+let pointerScrubbing = false;
+
+function seekToScrubPosition() {
+  if (!video.duration) return;
+  video.currentTime = (scrub.value / 1000) * video.duration;
+  if (deltaEnabled || dustEnabled) {
+    const bs = Math.max(blockSize, 1);
+    const sw = Math.ceil(video.videoWidth / bs);
+    const sh = Math.ceil(video.videoHeight / bs);
+    if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
+  }
+  resetFireworks();
+  if (glowBuffer) glowBuffer.fill(0);
+  prevChangeCount = 0;
+  drawCurrentFrame();
+  updateTime();
+}
+
+function scrubFromPointer(e) {
+  const rect = scrub.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  scrub.value = Math.round(pct * 1000);
+  seekToScrubPosition();
+}
+
+scrub.addEventListener('pointerdown', (e) => {
+  isScrubbing = true;
+  pointerScrubbing = true;
+  scrubFromPointer(e);
+  const onMove = (e2) => scrubFromPointer(e2);
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    pointerScrubbing = false;
     isScrubbing = false;
     updateTime();
-  }
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
 });
+
+// Keyboard accessibility (arrow keys) — only when not pointer-scrubbing
 scrub.addEventListener('input', () => {
-  isScrubbing = true;
-  if (video.duration) {
-    video.currentTime = (scrub.value / 1000) * video.duration;
-    if (deltaEnabled || dustEnabled) {
-      const bs = Math.max(blockSize, 1);
-      const sw = Math.ceil(video.videoWidth / bs);
-      const sh = Math.ceil(video.videoHeight / bs);
-      if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
-    }
-    resetFireworks();
-    if (glowBuffer) glowBuffer.fill(0);
-    prevChangeCount = 0;
-    drawCurrentFrame();
-    updateTime();
-  }
+  if (pointerScrubbing) return;
+  seekToScrubPosition();
 });
 
 blockSlider.addEventListener('input', () => {
