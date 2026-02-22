@@ -89,19 +89,20 @@
   }
   .canvas-wrap {
     position: relative;
-    background: #000;
     border-radius: 4px;
     overflow: hidden;
     line-height: 0;
+    max-width: 90vw;
+    width: fit-content;
   }
   .effect-sections { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem; max-width:42rem; width:100%; }
   .effect-section { background:#1a1a1a; border-radius:8px; border:1px solid #333; padding:0.6rem 1rem; border-left:3px solid #555; }
   .linger-section { border-left-color:#e55; }
-  .fireworks-section { border-left-color:#d4a017; }
+  .dust-section { border-left-color:#d4a017; }
   .section-header { display:flex; align-items:center; gap:0.75rem; }
   .section-header label { font-size:0.9rem; font-weight:600; color:#ddd; cursor:pointer; }
   .section-header .linger-toggle { color:#e55; }
-  .section-header .fireworks-toggle { color:#d4a017; }
+  .section-header .dust-toggle { color:#d4a017; }
   .section-body { padding-left:1.5rem; margin-top:0.35rem; }
   .section-body.disabled { opacity:0.35; pointer-events:none; }
   .sub-row { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.25rem; }
@@ -109,7 +110,13 @@
   .sub-row input[type="checkbox"] { accent-color:#e55; }
   .linger-section input[type="checkbox"] { accent-color:#e55; }
   .sub-row input[type="color"] { width:2rem; height:1.5rem; border:1px solid #555; border-radius:4px; background:#1a1a1a; cursor:pointer; padding:1px; }
-  .fireworks-section input[type="checkbox"] { accent-color:#d4a017; }
+  .dust-section input[type="checkbox"] { accent-color:#d4a017; }
+  .dust-tabs { display:flex; gap:0.25rem; margin-bottom:0.4rem; }
+  .dust-tab { font-size:0.75rem; padding:0.2rem 0.5rem; background:#252525; border:1px solid #444; border-radius:3px; cursor:pointer; color:#999; transition: all 0.15s; }
+  .dust-tab:hover { color:#ddd; border-color:#666; }
+  .dust-tab.active { background:#3a3520; color:#d4a017; border-color:#d4a017; }
+  .dust-tab input[type="radio"] { display:none; }
+  .dust-mode-controls { margin-top:0.25rem; }
   [data-tip] {
     position: relative;
   }
@@ -130,15 +137,13 @@
     z-index: 10;
     pointer-events: none;
   }
-  .canvas-wrap { aspect-ratio: 4/3; }
   .spinner {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    min-height: 20rem;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #000;
-    z-index: 1;
   }
   .spinner::after {
     content: '';
@@ -150,13 +155,28 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  canvas { display: block; max-width: 90vw; }
+  canvas { display: block; }
   video { display: none; }
+  .play-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: rgba(0,0,0,0.4);
+    cursor: pointer;
+    z-index: 1;
+  }
+  .play-overlay svg { width: 4rem; height: 4rem; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
+  .play-overlay span { font-size: 0.85rem; color: #ccc; letter-spacing: 0.05em; }
 </style>
 </head>
 <body>
 
 <h1>Bad Apple!!: the applening</h1>
+<a href="https://www.youtube.com/watch?v=0n3jW9vlH70" target="_blank" rel="noopener" style="font-size:0.75rem;color:#666;margin-top:-0.75rem;margin-bottom:0.75rem;text-decoration:none;">source</a>
 
 <div class="controls">
   <div class="control-group">
@@ -178,8 +198,8 @@
     </div>
     <div class="section-body disabled" id="lingerBody">
       <div class="sub-row">
-        <label for="deltaSpeed" data-tip="How fast the color sweeps red to violet">Speed</label>
-        <input type="range" id="deltaSpeed" min="20" max="200" value="120">
+        <label for="deltaSpeed" data-tip="How long the color sweep lasts">Duration</label>
+        <input type="range" id="deltaSpeed" min="20" max="200" value="110">
         <label data-tip="Start color of the sweep">From</label>
         <input type="color" id="deltaColorStart" value="#ff0000">
         <label data-tip="End color of the sweep">To</label>
@@ -188,16 +208,83 @@
     </div>
   </div>
 
-  <div class="effect-section fireworks-section">
+  <div class="effect-section dust-section">
     <div class="section-header">
-      <label class="fireworks-toggle" data-tip="Particles burst from pixels that change"><input type="checkbox" id="fireworksToggle"> Fireworks</label>
+      <label class="dust-toggle" data-tip="Gentle particles drift from changing edges"><input type="checkbox" id="dustToggle"> Dust</label>
     </div>
-    <div class="section-body disabled" id="fireworksBody">
-      <div class="sub-row">
-        <label for="fireworksIntensity" data-tip="Number of particles per burst">Intensity</label>
-        <input type="range" id="fireworksIntensity" min="1" max="20" value="8">
-        <label for="fireworksSpread" data-tip="How far particles fly">Spread</label>
-        <input type="range" id="fireworksSpread" min="10" max="500" value="200">
+    <div class="section-body disabled" id="dustBody">
+      <div class="dust-tabs" id="dustTabs">
+        <label class="dust-tab active"><input type="radio" name="dustMode" value="classic" checked> Classic</label>
+        <label class="dust-tab"><input type="radio" name="dustMode" value="trails"> Trails</label>
+        <label class="dust-tab"><input type="radio" name="dustMode" value="glow"> Glow</label>
+        <label class="dust-tab"><input type="radio" name="dustMode" value="outline"> Outline</label>
+        <label class="dust-tab"><input type="radio" name="dustMode" value="eruptions"> Eruptions</label>
+      </div>
+      <div class="dust-mode-controls" id="dustClassicControls">
+        <div class="sub-row">
+          <label data-tip="How fast particles drift">Speed</label>
+          <input type="range" id="dustSpeed" min="5" max="200" value="100">
+          <label data-tip="How many particles spawn per frame">Density</label>
+          <input type="range" id="dustDensity" min="1" max="200" value="100">
+          <label data-tip="How wide particles scatter on spawn">Spread</label>
+          <input type="range" id="dustSpread" min="1" max="200" value="100">
+          <label data-tip="How easily dust spawns">Sensitivity</label>
+          <input type="range" id="dustSensitivity" min="0" max="20" value="15">
+          <label data-tip="Dust particle color">Color</label>
+          <input type="color" id="dustColorStart" value="#ffcc00">
+          <label>To</label>
+          <input type="color" id="dustColorEnd" value="#ffcc00">
+        </div>
+      </div>
+      <div class="dust-mode-controls" id="dustTrailsControls" style="display:none">
+        <div class="sub-row">
+          <label data-tip="How long trails persist">Length</label>
+          <input type="range" id="trailLength" min="20" max="300" value="150">
+          <label data-tip="Trail particle speed">Speed</label>
+          <input type="range" id="trailSpeed" min="10" max="300" value="120">
+          <label data-tip="How many trail particles">Density</label>
+          <input type="range" id="trailDensity" min="1" max="200" value="80">
+          <label data-tip="Trail color">Color</label>
+          <input type="color" id="trailColorStart" value="#00ccff">
+          <label>To</label>
+          <input type="color" id="trailColorEnd" value="#ff00cc">
+        </div>
+      </div>
+      <div class="dust-mode-controls" id="dustGlowControls" style="display:none">
+        <div class="sub-row">
+          <label data-tip="Glow brightness buildup rate">Intensity</label>
+          <input type="range" id="glowIntensity" min="1" max="100" value="50">
+          <label data-tip="How fast glow fades">Decay</label>
+          <input type="range" id="glowDecay" min="1" max="100" value="30">
+          <label data-tip="Glow color">Color</label>
+          <input type="color" id="glowColorStart" value="#ff4400">
+          <label>To</label>
+          <input type="color" id="glowColorEnd" value="#ffcc00">
+        </div>
+      </div>
+      <div class="dust-mode-controls" id="dustOutlineControls" style="display:none">
+        <div class="sub-row">
+          <label data-tip="How fast particles trace edges">Speed</label>
+          <input type="range" id="outlineSpeed" min="10" max="300" value="100">
+          <label data-tip="Edge particle density">Density</label>
+          <input type="range" id="outlineDensity" min="1" max="200" value="100">
+          <label data-tip="Outline color">Color</label>
+          <input type="color" id="outlineColorStart" value="#00ff88">
+          <label>To</label>
+          <input type="color" id="outlineColorEnd" value="#00ff88">
+        </div>
+      </div>
+      <div class="dust-mode-controls" id="dustEruptionsControls" style="display:none">
+        <div class="sub-row">
+          <label data-tip="Motion spike needed to trigger burst">Threshold</label>
+          <input type="range" id="eruptThreshold" min="1" max="100" value="30">
+          <label data-tip="Particles per burst">Size</label>
+          <input type="range" id="eruptSize" min="10" max="500" value="150">
+          <label data-tip="Burst color">Color</label>
+          <input type="color" id="eruptColorStart" value="#ff2200">
+          <label>To</label>
+          <input type="color" id="eruptColorEnd" value="#ffaa00">
+        </div>
       </div>
     </div>
   </div>
@@ -209,10 +296,15 @@
   <button id="stopBtn">Stop</button>
   <input type="range" id="scrub" min="0" max="1000" value="0">
   <span id="timeDisplay">0:00 / 0:00</span>
+  <button id="shareBtn">Share</button>
 </div>
 
 <div class="canvas-wrap">
   <div class="spinner" id="spinner"></div>
+  <div class="play-overlay" id="playOverlay" style="display:none">
+    <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="none" stroke="#eee" stroke-width="2.5"/><polygon points="26,20 26,44 46,32" fill="#eee"/></svg>
+    <span>click to start</span>
+  </div>
   <canvas id="canvas"></canvas>
 </div>
 
@@ -236,10 +328,14 @@ const deltaSpeedSlider = document.getElementById('deltaSpeed');
 const deltaColorStartEl = document.getElementById('deltaColorStart');
 const deltaColorEndEl = document.getElementById('deltaColorEnd');
 const lingerBody = document.getElementById('lingerBody');
-const fireworksBody = document.getElementById('fireworksBody');
-const fireworksToggle = document.getElementById('fireworksToggle');
-const fireworksIntensitySlider = document.getElementById('fireworksIntensity');
-const fireworksSpreadSlider = document.getElementById('fireworksSpread');
+const dustBody = document.getElementById('dustBody');
+const dustToggle = document.getElementById('dustToggle');
+const dustSpeedSlider = document.getElementById('dustSpeed');
+const dustDensitySlider = document.getElementById('dustDensity');
+const dustSpreadSlider = document.getElementById('dustSpread');
+const dustColorStartEl = document.getElementById('dustColorStart');
+const dustColorEndEl = document.getElementById('dustColorEnd');
+const dustSensitivitySlider = document.getElementById('dustSensitivity');
 
 let blockSize = 1;
 let blurRadius = 0;
@@ -249,8 +345,8 @@ let isScrubbing = false;
 
 // Delta mode state
 let deltaEnabled = false;
-let deltaSweepDuration = 1.0;
-let deltaFadeDuration = 0.5;
+let deltaSweepDuration = 1.1;
+let deltaFadeDuration = 0.55;
 let deltaPrevFrame = null;
 let deltaChangeAge = null;
 let deltaPrevSw = 0;
@@ -260,9 +356,14 @@ let deltaHueStart = 0;       // red
 let deltaHueEnd = 0.762;     // violet (#8800ff)
 
 // Fireworks state
-let fireworksEnabled = false;
-let fireworksIntensity = 8;
-let fireworksSpread = 200;
+let dustEnabled = false;
+let dustSpeed = 100;
+let dustDensity = 100;
+let dustSpread = 100;
+let dustHueStart = hexToHue('#ffcc00');
+let dustHueEnd = hexToHue('#ffcc00');
+let dustThreshold = 5;       // 20 - sensitivity; 0 = any change, 20 = most selective
+let dustChangeRate = null;     // Float32Array, same size as deltaChangeAge
 let fwLastTimestamp = 0;
 const FW_MAX = 12000;
 const FW_LIFETIME = 2.0;
@@ -281,13 +382,45 @@ const fwSplit = new Uint8Array(FW_MAX);
 let fwCount = 0;
 let fwNextSlot = 0;
 
+// Dust mode
+let dustMode = 'classic'; // classic, trails, glow, outline, eruptions
+
+// Trails mode state
+let trailLength = 1.5;      // lifetime in seconds (slider / 100)
+let trailSpeed = 120;
+let trailDensity = 80;
+let trailHueStart = hexToHue('#00ccff');
+let trailHueEnd = hexToHue('#ff00cc');
+
+// Glow mode state
+let glowIntensity = 50;
+let glowDecay = 30;
+let glowHueStart = hexToHue('#ff4400');
+let glowHueEnd = hexToHue('#ffcc00');
+let glowBuffer = null;       // Float32Array, same size as change detection grid
+let glowPrevSw = 0;
+let glowPrevSh = 0;
+
+// Outline mode state
+let outlineSpeed = 100;
+let outlineDensity = 100;
+let outlineHueStart = hexToHue('#00ff88');
+let outlineHueEnd = hexToHue('#00ff88');
+
+// Eruptions mode state
+let eruptThreshold = 30;
+let eruptSize = 150;
+let eruptHueStart = hexToHue('#ff2200');
+let eruptHueEnd = hexToHue('#ffaa00');
+let prevChangeCount = 0;
+
 
 // Offscreen canvas for downsampling
 const small = document.createElement('canvas');
 const sctx = small.getContext('2d');
 
 function loadVideo() {
-  video.src = 'r2/full_video.mp4';
+  video.src = '/media/source/bad_apple.mp4';
   video.load();
 }
 
@@ -301,7 +434,7 @@ function updateTime() {
   const cur = fmtTime(video.currentTime);
   const dur = fmtTime(video.duration || 0);
   timeDisplay.textContent = cur + ' / ' + dur;
-  if (!isScrubbing && video.duration) {
+  if (!isScrubbing && !video.seeking && video.duration) {
     scrub.value = (video.currentTime / video.duration) * 1000;
   }
 }
@@ -343,6 +476,7 @@ function resetDeltaBuffers(sw, sh) {
   deltaPrevFrame = new Uint8Array(sw * sh);
   deltaChangeAge = new Float32Array(sw * sh);
   deltaChangeAge.fill(10.0);
+  dustChangeRate = new Float32Array(sw * sh);
   deltaPrevSw = sw;
   deltaPrevSh = sh;
   deltaLastTimestamp = 0;
@@ -386,8 +520,10 @@ function detectChangedBlocks(now, sw, sh) {
     const diff = Math.abs(gray - deltaPrevFrame[i]);
     if (diff > 30) {
       deltaChangeAge[i] = 0;
+      if (dustChangeRate) dustChangeRate[i] = Math.min(dustChangeRate[i] + 1, 20);
     } else {
       deltaChangeAge[i] += dt;
+      if (dustChangeRate) dustChangeRate[i] = Math.max(dustChangeRate[i] - dt * 3, 0);
     }
     deltaPrevFrame[i] = gray;
     if (deltaChangeAge[i] < totalDuration) anyActive = true;
@@ -448,16 +584,21 @@ function applyLingerOverlay(w, h) {
 
 function fwSpawn(cx, cy, hue, count, spreadMag, gen) {
   gen = gen || 0;
+  // Pick a dominant drift direction per spawn point for asymmetry
+  const drift = Math.random() * Math.PI * 2;
   for (let j = 0; j < count; j++) {
     const slot = fwNextSlot;
     if (fwAlive[slot]) fwCount--;
-    const angle = Math.random() * Math.PI * 2;
-    const speed = (0.5 + Math.random() * 0.5) * spreadMag;
-    fwX[slot] = cx;
-    fwY[slot] = cy;
+    // Bias angle toward drift direction for non-circular clusters
+    const angle = drift + (Math.random() - 0.5) * 3.5 + (Math.random() - 0.5) * 0.5;
+    // Power-law speed: many slow, few fast — breaks the donut shape
+    const r = Math.random();
+    const speed = (0.1 + r * r * r * 1.5) * spreadMag;
+    fwX[slot] = cx + (Math.random() - 0.5) * 4;
+    fwY[slot] = cy + (Math.random() - 0.5) * 4;
     fwVx[slot] = Math.cos(angle) * speed;
     fwVy[slot] = Math.sin(angle) * speed;
-    fwHue[slot] = hue + (Math.random() - 0.5) * 0.05;
+    fwHue[slot] = hue + (Math.random() - 0.5) * 0.08;
     fwAge[slot] = 0;
     fwAlive[slot] = 1;
     fwGen[slot] = gen;
@@ -467,42 +608,63 @@ function fwSpawn(cx, cy, hue, count, spreadMag, gen) {
   }
 }
 
+// Simple hash for position-based turbulence (no import needed)
+function fwNoise(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
 function fwUpdate(dt) {
+  const speedScale = dustSpeed / 100;
   const toSplit = [];
   for (let i = 0; i < FW_MAX; i++) {
     if (!fwAlive[i]) continue;
-    fwVy[i] += FW_GRAVITY * dt;
-    fwX[i] += fwVx[i] * dt;
-    fwY[i] += fwVy[i] * dt;
+    // Gravity (reduced to let turbulence dominate)
+    fwVy[i] += FW_GRAVITY * 0.5 * dt * speedScale;
+    // Curl-like turbulence: position-dependent swirling forces
+    const nx = fwNoise(fwX[i] * 0.02, fwY[i] * 0.02 + fwAge[i] * 2);
+    const ny = fwNoise(fwX[i] * 0.02 + 100, fwY[i] * 0.02 + fwAge[i] * 2);
+    const turb = 120 * speedScale;
+    fwVx[i] += (nx - 0.5) * turb * dt;
+    fwVy[i] += (ny - 0.5) * turb * dt;
+    // Damping to prevent runaway velocities
+    fwVx[i] *= (1 - 0.3 * dt);
+    fwVy[i] *= (1 - 0.3 * dt);
+    fwX[i] += fwVx[i] * dt * speedScale;
+    fwY[i] += fwVy[i] * dt * speedScale;
     fwAge[i] += dt;
     if (fwAge[i] >= FW_LIFETIME) {
       fwAlive[i] = 0;
       fwCount--;
       continue;
     }
-    // Branching: split once per generation at FW_SPLIT_AGE
-    if (!fwSplit[i] && fwGen[i] < FW_MAX_GEN && fwAge[i] >= FW_SPLIT_AGE) {
+    // Branching: split at age thresholds that vary by generation
+    const splitAge = FW_SPLIT_AGE * (1 + fwGen[i] * 0.3) + fwNoise(i * 0.1, 0) * 0.2;
+    if (!fwSplit[i] && fwGen[i] < FW_MAX_GEN && fwAge[i] >= splitAge) {
       fwSplit[i] = 1;
       toSplit.push(i);
     }
   }
-  // Spawn children from split particles
-  for (let k = 0; k < toSplit.length && fwCount < FW_MAX - 4; k++) {
+  // Spawn children — asymmetric branching (1-3 children, varied angles)
+  for (let k = 0; k < toSplit.length && fwCount < FW_MAX - 6; k++) {
     const i = toSplit[k];
     const vx = fwVx[i], vy = fwVy[i];
-    const speed = Math.sqrt(vx * vx + vy * vy) * 0.7;
+    const speed = Math.sqrt(vx * vx + vy * vy);
     const baseAngle = Math.atan2(vy, vx);
     const gen = fwGen[i] + 1;
-    // Fork into 2 children at ~40 degree spread
-    for (let b = -1; b <= 1; b += 2) {
-      const a = baseAngle + b * (0.3 + Math.random() * 0.4);
+    // 1-3 children with asymmetric angles and speeds
+    const nChildren = 1 + ((Math.random() * 3) | 0);
+    for (let c = 0; c < nChildren; c++) {
+      const spread = (0.2 + Math.random() * 1.0) * (Math.random() < 0.5 ? -1 : 1);
+      const childSpeed = speed * (0.4 + Math.random() * 0.8);
+      const a = baseAngle + spread;
       const slot = fwNextSlot;
       if (fwAlive[slot]) fwCount--;
-      fwX[slot] = fwX[i];
-      fwY[slot] = fwY[i];
-      fwVx[slot] = Math.cos(a) * speed;
-      fwVy[slot] = Math.sin(a) * speed;
-      fwHue[slot] = fwHue[i] + (Math.random() - 0.5) * 0.03;
+      fwX[slot] = fwX[i] + (Math.random() - 0.5) * 3;
+      fwY[slot] = fwY[i] + (Math.random() - 0.5) * 3;
+      fwVx[slot] = Math.cos(a) * childSpeed;
+      fwVy[slot] = Math.sin(a) * childSpeed;
+      fwHue[slot] = fwHue[i] + (Math.random() - 0.5) * 0.06;
       fwAge[slot] = 0;
       fwAlive[slot] = 1;
       fwGen[slot] = gen;
@@ -550,6 +712,7 @@ function fwSpawnFromChangedBlocks(w, h, sw, sh) {
     for (let bx = 0; bx < sw; bx++) {
       const bi = by * sw + bx;
       if (deltaChangeAge[bi] !== 0) continue;
+      if (dustChangeRate && dustChangeRate[bi] < dustThreshold) continue;
       // Check if any neighbor is unchanged
       let isEdge = false;
       if (bx === 0 || bx === sw - 1 || by === 0 || by === sh - 1) {
@@ -564,9 +727,9 @@ function fwSpawnFromChangedBlocks(w, h, sw, sh) {
     }
   }
   if (edges.length === 0) return;
-  // Sample a subset of edges to avoid overwhelming the pool
-  const maxSpawnPoints = Math.min(edges.length, Math.ceil(FW_MAX / fireworksIntensity));
-  const step = edges.length <= maxSpawnPoints ? 1 : edges.length / maxSpawnPoints;
+  // Sample edges based on density (dustDensity% of available edges, capped by pool)
+  const maxPoints = Math.min(edges.length, Math.ceil(edges.length * dustDensity / 100), FW_MAX);
+  const step = edges.length <= maxPoints ? 1 : edges.length / maxPoints;
   let spawned = 0;
   for (let ei = 0; ei < edges.length && spawned < FW_MAX; ei += step) {
     const bi = edges[ei | 0];
@@ -574,9 +737,9 @@ function fwSpawnFromChangedBlocks(w, h, sw, sh) {
     const by = (bi / sw) | 0;
     const cx = Math.min((bx * bs + bs / 2) | 0, w - 1);
     const cy = Math.min((by * bs + bs / 2) | 0, h - 1);
-    const hue = 0.08 + Math.random() * 0.08;
-    fwSpawn(cx, cy, hue, fireworksIntensity, fireworksSpread);
-    spawned += fireworksIntensity;
+    const hue = dustHueStart + Math.random() * (dustHueEnd - dustHueStart);
+    fwSpawn(cx, cy, hue, 1, dustSpread);
+    spawned++;
   }
 }
 
@@ -588,12 +751,287 @@ function resetFireworks() {
   fwNextSlot = 0;
 }
 
+// ── Trails mode: spawn particles aligned to motion direction ──
+function trailsSpawnFromChangedBlocks(w, h, sw, sh) {
+  if (!deltaChangeAge) return;
+  const bs = Math.max(blockSize, 1);
+  const totalDuration = deltaSweepDuration + deltaFadeDuration;
+  const maxSpawn = Math.ceil(trailDensity * 1.5);
+  let spawned = 0;
+
+  for (let by = 1; by < sh - 1 && spawned < maxSpawn; by++) {
+    for (let bx = 1; bx < sw - 1 && spawned < maxSpawn; bx++) {
+      const bi = by * sw + bx;
+      if (deltaChangeAge[bi] !== 0) continue;
+      if (dustChangeRate && dustChangeRate[bi] < 3) continue;
+
+      // Compute motion direction from neighbor change pattern
+      let dx = 0, dy = 0;
+      if (deltaChangeAge[bi - 1] >= totalDuration) dx -= 1;
+      if (deltaChangeAge[bi + 1] >= totalDuration) dx += 1;
+      if (deltaChangeAge[bi - sw] >= totalDuration) dy -= 1;
+      if (deltaChangeAge[bi + sw] >= totalDuration) dy += 1;
+      if (dx === 0 && dy === 0) continue; // not an edge
+
+      const mag = Math.sqrt(dx * dx + dy * dy);
+      dx /= mag; dy /= mag;
+
+      const cx = Math.min((bx * bs + bs / 2) | 0, w - 1);
+      const cy = Math.min((by * bs + bs / 2) | 0, h - 1);
+      const hue = trailHueStart + Math.random() * (trailHueEnd - trailHueStart);
+      const speed = trailSpeed * (0.5 + Math.random() * 0.8);
+
+      const slot = fwNextSlot;
+      if (fwAlive[slot]) fwCount--;
+      fwX[slot] = cx + (Math.random() - 0.5) * bs;
+      fwY[slot] = cy + (Math.random() - 0.5) * bs;
+      // Velocity aligned to motion direction with some jitter
+      const jitter = (Math.random() - 0.5) * 0.6;
+      fwVx[slot] = (dx + jitter) * speed;
+      fwVy[slot] = (dy + jitter) * speed;
+      fwHue[slot] = hue;
+      fwAge[slot] = 0;
+      fwAlive[slot] = 1;
+      fwGen[slot] = 0;
+      fwSplit[slot] = 0;
+      fwCount++;
+      fwNextSlot = (fwNextSlot + 1) % FW_MAX;
+      spawned++;
+    }
+  }
+}
+
+function trailsUpdate(dt) {
+  for (let i = 0; i < FW_MAX; i++) {
+    if (!fwAlive[i]) continue;
+    // Gentle drag, no gravity, no branching
+    fwVx[i] *= (1 - 0.8 * dt);
+    fwVy[i] *= (1 - 0.8 * dt);
+    fwX[i] += fwVx[i] * dt;
+    fwY[i] += fwVy[i] * dt;
+    fwAge[i] += dt;
+    if (fwAge[i] >= trailLength) {
+      fwAlive[i] = 0;
+      fwCount--;
+    }
+  }
+}
+
+function trailsRender(w, h) {
+  if (fwCount <= 0) return;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+  for (let i = 0; i < FW_MAX; i++) {
+    if (!fwAlive[i]) continue;
+    const alpha = Math.pow(1 - (fwAge[i] / trailLength), 0.5);
+    const cx = Math.round(fwX[i]);
+    const cy = Math.round(fwY[i]);
+    if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
+    const rgb = hsvToRgb(fwHue[i], 0.85, 1.0);
+    // Render as a 1px dot with soft glow
+    for (let dy = -1; dy <= 1; dy++) {
+      const py = cy + dy;
+      if (py < 0 || py >= h) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        const px = cx + dx;
+        if (px < 0 || px >= w) continue;
+        const a = (dx === 0 && dy === 0) ? alpha : alpha * 0.3;
+        const pi = (py * w + px) * 4;
+        data[pi] = data[pi] + (rgb[0] - data[pi]) * a;
+        data[pi + 1] = data[pi + 1] + (rgb[1] - data[pi + 1]) * a;
+        data[pi + 2] = data[pi + 2] + (rgb[2] - data[pi + 2]) * a;
+      }
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ── Glow mode: heat buffer overlay ──
+function glowResetBuffer(sw, sh) {
+  glowBuffer = new Float32Array(sw * sh);
+  glowPrevSw = sw;
+  glowPrevSh = sh;
+}
+
+function glowUpdate(sw, sh, dt) {
+  if (!glowBuffer || glowPrevSw !== sw || glowPrevSh !== sh) {
+    glowResetBuffer(sw, sh);
+  }
+  if (!deltaChangeAge) return;
+  const addRate = glowIntensity / 50;        // 0..2
+  const decayRate = 1 - (glowDecay / 100) * dt * 5;  // per frame decay
+
+  for (let i = 0; i < sw * sh; i++) {
+    // Add heat where motion detected
+    if (deltaChangeAge[i] < 0.05) {
+      glowBuffer[i] = Math.min(glowBuffer[i] + addRate * dt * 10, 1.0);
+    }
+    // Decay
+    glowBuffer[i] *= decayRate;
+    if (glowBuffer[i] < 0.005) glowBuffer[i] = 0;
+  }
+
+  // Spatial blur: average with neighbors for soft glow
+  const tmp = new Float32Array(sw * sh);
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      const i = y * sw + x;
+      let sum = glowBuffer[i] * 4;
+      let count = 4;
+      if (x > 0) { sum += glowBuffer[i - 1]; count++; }
+      if (x < sw - 1) { sum += glowBuffer[i + 1]; count++; }
+      if (y > 0) { sum += glowBuffer[i - sw]; count++; }
+      if (y < sh - 1) { sum += glowBuffer[i + sw]; count++; }
+      tmp[i] = sum / count;
+    }
+  }
+  glowBuffer.set(tmp);
+}
+
+function glowRender(w, h) {
+  if (!glowBuffer) return;
+  const sw = glowPrevSw, sh = glowPrevSh;
+  if (!sw || !sh) return;
+
+  let anyActive = false;
+  for (let i = 0; i < sw * sh; i++) {
+    if (glowBuffer[i] > 0.01) { anyActive = true; break; }
+  }
+  if (!anyActive) return;
+
+  const bs = Math.max(blockSize, 1);
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  for (let py = 0; py < h; py++) {
+    const by = Math.min((py / bs) | 0, sh - 1);
+    for (let px = 0; px < w; px++) {
+      const bx = Math.min((px / bs) | 0, sw - 1);
+      const heat = glowBuffer[by * sw + bx];
+      if (heat < 0.01) continue;
+
+      const t = heat;
+      const hue = glowHueStart + t * (glowHueEnd - glowHueStart);
+      const rgb = hsvToRgb(hue, 0.9, 1.0);
+      const alpha = Math.min(heat * 0.8, 0.85);
+      const pi = (py * w + px) * 4;
+      data[pi] = data[pi] + (rgb[0] - data[pi]) * alpha;
+      data[pi + 1] = data[pi + 1] + (rgb[1] - data[pi + 1]) * alpha;
+      data[pi + 2] = data[pi + 2] + (rgb[2] - data[pi + 2]) * alpha;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ── Outline mode: particles that trace edges ──
+function outlineSpawnFromEdges(w, h, sw, sh) {
+  if (!deltaChangeAge) return;
+  const bs = Math.max(blockSize, 1);
+  const totalDuration = deltaSweepDuration + deltaFadeDuration;
+  const maxSpawn = Math.ceil(outlineDensity * 1.2);
+  let spawned = 0;
+
+  for (let by = 1; by < sh - 1 && spawned < maxSpawn; by++) {
+    for (let bx = 1; bx < sw - 1 && spawned < maxSpawn; bx++) {
+      const bi = by * sw + bx;
+      if (deltaChangeAge[bi] !== 0) continue;
+
+      // Find edge normal (direction from changed toward unchanged)
+      let nx = 0, ny = 0;
+      if (deltaChangeAge[bi - 1] >= totalDuration) nx -= 1;
+      if (deltaChangeAge[bi + 1] >= totalDuration) nx += 1;
+      if (deltaChangeAge[bi - sw] >= totalDuration) ny -= 1;
+      if (deltaChangeAge[bi + sw] >= totalDuration) ny += 1;
+      if (nx === 0 && ny === 0) continue; // not an edge
+
+      // Tangent is perpendicular to normal (rotate 90 degrees)
+      const tx = -ny, ty = nx;
+      const mag = Math.sqrt(tx * tx + ty * ty);
+
+      const cx = Math.min((bx * bs + bs / 2) | 0, w - 1);
+      const cy = Math.min((by * bs + bs / 2) | 0, h - 1);
+      const hue = outlineHueStart + Math.random() * (outlineHueEnd - outlineHueStart);
+      const speed = outlineSpeed * (0.6 + Math.random() * 0.8);
+      // Random direction along tangent
+      const dir = Math.random() < 0.5 ? 1 : -1;
+
+      const slot = fwNextSlot;
+      if (fwAlive[slot]) fwCount--;
+      fwX[slot] = cx;
+      fwY[slot] = cy;
+      fwVx[slot] = (tx / mag) * speed * dir + (Math.random() - 0.5) * 10;
+      fwVy[slot] = (ty / mag) * speed * dir + (Math.random() - 0.5) * 10;
+      fwHue[slot] = hue;
+      fwAge[slot] = 0;
+      fwAlive[slot] = 1;
+      fwGen[slot] = 0;
+      fwSplit[slot] = 0;
+      fwCount++;
+      fwNextSlot = (fwNextSlot + 1) % FW_MAX;
+      spawned++;
+    }
+  }
+}
+
+function outlineUpdate(dt) {
+  for (let i = 0; i < FW_MAX; i++) {
+    if (!fwAlive[i]) continue;
+    // Strong drag to keep particles near edges
+    fwVx[i] *= (1 - 2.5 * dt);
+    fwVy[i] *= (1 - 2.5 * dt);
+    fwX[i] += fwVx[i] * dt;
+    fwY[i] += fwVy[i] * dt;
+    fwAge[i] += dt;
+    if (fwAge[i] >= 0.8) {
+      fwAlive[i] = 0;
+      fwCount--;
+    }
+  }
+}
+
+// ── Eruptions mode: burst on motion spikes ──
+function eruptionsCheck(w, h, sw, sh) {
+  if (!deltaChangeAge) return;
+  // Count currently changed blocks
+  let changeCount = 0;
+  for (let i = 0; i < sw * sh; i++) {
+    if (deltaChangeAge[i] < 0.05) changeCount++;
+  }
+
+  const spike = changeCount - prevChangeCount;
+  const threshold = eruptThreshold * sw * sh / 5000; // scale with resolution
+  prevChangeCount = changeCount;
+
+  if (spike > threshold && changeCount > 10) {
+    // Find center of changed area
+    let sumX = 0, sumY = 0, count = 0;
+    const bs = Math.max(blockSize, 1);
+    for (let by = 0; by < sh; by++) {
+      for (let bx = 0; bx < sw; bx++) {
+        if (deltaChangeAge[by * sw + bx] < 0.05) {
+          sumX += bx * bs + bs / 2;
+          sumY += by * bs + bs / 2;
+          count++;
+        }
+      }
+    }
+    if (count > 0) {
+      const cx = Math.min((sumX / count) | 0, w - 1);
+      const cy = Math.min((sumY / count) | 0, h - 1);
+      const hue = eruptHueStart + Math.random() * (eruptHueEnd - eruptHueStart);
+      // Scale burst size by spike magnitude
+      const burstCount = Math.min(eruptSize, Math.ceil(eruptSize * spike / (threshold * 3)));
+      fwSpawn(cx, cy, hue, burstCount, 200 + spike * 0.5, 0);
+    }
+  }
+}
+
 function drawCurrentFrame(now) {
   const w = video.videoWidth;
   const h = video.videoHeight;
   if (!w || !h) return;
   const bs = blockSize;
-  const needDetection = deltaEnabled || fireworksEnabled;
+  const needDetection = deltaEnabled || dustEnabled;
   const bsMax = Math.max(bs, 1);
   const sw = Math.ceil(w / bsMax);
   const sh = Math.ceil(h / bsMax);
@@ -628,16 +1066,34 @@ function drawCurrentFrame(now) {
     applyLingerOverlay(w, h);
   }
 
-  // 6. Fireworks: spawn, update, render
-  if (fireworksEnabled) {
-    fwSpawnFromChangedBlocks(w, h, sw, sh);
+  // 6. Dust effects (mode-dependent)
+  if (dustEnabled) {
     let fwDt = 0;
     if (now && fwLastTimestamp > 0) {
       fwDt = Math.min((now - fwLastTimestamp) / 1000, 0.1);
     }
     if (now) fwLastTimestamp = now;
-    fwUpdate(fwDt);
-    fwRender(w, h);
+
+    if (dustMode === 'classic') {
+      fwSpawnFromChangedBlocks(w, h, sw, sh);
+      fwUpdate(fwDt);
+      fwRender(w, h);
+    } else if (dustMode === 'trails') {
+      trailsSpawnFromChangedBlocks(w, h, sw, sh);
+      trailsUpdate(fwDt);
+      trailsRender(w, h);
+    } else if (dustMode === 'glow') {
+      glowUpdate(sw, sh, fwDt);
+      glowRender(w, h);
+    } else if (dustMode === 'outline') {
+      outlineSpawnFromEdges(w, h, sw, sh);
+      outlineUpdate(fwDt);
+      fwRender(w, h); // reuse particle renderer
+    } else if (dustMode === 'eruptions') {
+      eruptionsCheck(w, h, sw, sh);
+      fwUpdate(fwDt);
+      fwRender(w, h);
+    }
   }
 
   // Final: apply blur to entire composited frame
@@ -652,10 +1108,15 @@ video.addEventListener('loadedmetadata', () => {
   document.getElementById('spinner').remove();
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
+  const maxW = window.innerWidth * 0.9;
+  const displayW = Math.min(video.videoWidth, maxW);
+  const displayH = displayW * video.videoHeight / video.videoWidth;
+  canvas.style.width = displayW + 'px';
+  canvas.style.height = displayH + 'px';
   ctx.imageSmoothingEnabled = false;
   updateTime();
   drawCurrentFrame();
-  video.play().catch(e => console.warn('Autoplay blocked:', e));
+  document.getElementById('playOverlay').style.display = '';
 });
 
 video.addEventListener('play', () => {
@@ -670,21 +1131,32 @@ video.addEventListener('ended', () => {
 
 video.addEventListener('timeupdate', updateTime);
 
+// Play overlay
+document.getElementById('playOverlay').addEventListener('click', () => {
+  document.getElementById('playOverlay').style.display = 'none';
+  video.muted = false;
+  video.play();
+});
+
 // Transport controls
 playBtn.addEventListener('click', () => {
+  document.getElementById('playOverlay').style.display = 'none';
+  video.muted = false;
   video.play();
 });
 pauseBtn.addEventListener('click', () => video.pause());
 stopBtn.addEventListener('click', () => {
   video.pause();
   video.currentTime = 0;
-  if (deltaEnabled || fireworksEnabled) {
+  if (deltaEnabled || dustEnabled) {
     const bs = Math.max(blockSize, 1);
     const sw = Math.ceil(video.videoWidth / bs);
     const sh = Math.ceil(video.videoHeight / bs);
     if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
   }
   resetFireworks();
+  if (glowBuffer) glowBuffer.fill(0);
+  prevChangeCount = 0;
   updateTime();
   drawCurrentFrame();
 });
@@ -694,13 +1166,15 @@ scrub.addEventListener('input', () => {
   isScrubbing = true;
   if (video.duration) {
     video.currentTime = (scrub.value / 1000) * video.duration;
-    if (deltaEnabled || fireworksEnabled) {
+    if (deltaEnabled || dustEnabled) {
       const bs = Math.max(blockSize, 1);
       const sw = Math.ceil(video.videoWidth / bs);
       const sh = Math.ceil(video.videoHeight / bs);
       if (sw > 0 && sh > 0) resetDeltaBuffers(sw, sh);
     }
     resetFireworks();
+    if (glowBuffer) glowBuffer.fill(0);
+    prevChangeCount = 0;
     drawCurrentFrame();
     updateTime();
   }
@@ -712,7 +1186,7 @@ scrub.addEventListener('change', () => {
 blockSlider.addEventListener('input', () => {
   blockSize = parseInt(blockSlider.value);
   blockValue.textContent = blockSize;
-  if (deltaEnabled || fireworksEnabled) {
+  if (deltaEnabled || dustEnabled) {
     const bs = Math.max(blockSize, 1);
     const sw = Math.ceil(video.videoWidth / bs);
     const sh = Math.ceil(video.videoHeight / bs);
@@ -742,7 +1216,7 @@ deltaToggle.addEventListener('change', () => {
 
 deltaSpeedSlider.addEventListener('input', () => {
   const val = parseInt(deltaSpeedSlider.value);
-  deltaSweepDuration = (220 - val) / 100;
+  deltaSweepDuration = val / 100;
   deltaFadeDuration = deltaSweepDuration * 0.5;
 });
 
@@ -753,12 +1227,11 @@ deltaColorEndEl.addEventListener('input', () => {
   deltaHueEnd = hexToHue(deltaColorEndEl.value);
 });
 
-// Fireworks controls
-fireworksToggle.addEventListener('change', () => {
-  fireworksEnabled = fireworksToggle.checked;
-  if (fireworksEnabled) {
-    fireworksBody.classList.remove('disabled');
-    // Ensure change detection buffers exist
+// Dust controls
+dustToggle.addEventListener('change', () => {
+  dustEnabled = dustToggle.checked;
+  if (dustEnabled) {
+    dustBody.classList.remove('disabled');
     const bs = Math.max(blockSize, 1);
     const sw = Math.ceil(video.videoWidth / bs);
     const sh = Math.ceil(video.videoHeight / bs);
@@ -767,24 +1240,200 @@ fireworksToggle.addEventListener('change', () => {
     }
     fwLastTimestamp = 0;
   } else {
-    fireworksBody.classList.add('disabled');
+    dustBody.classList.add('disabled');
     resetFireworks();
   }
 });
 
-fireworksIntensitySlider.addEventListener('input', () => {
-  fireworksIntensity = parseInt(fireworksIntensitySlider.value);
+dustSpeedSlider.addEventListener('input', () => {
+  dustSpread = parseInt(dustSpeedSlider.value);
 });
 
-fireworksSpreadSlider.addEventListener('input', () => {
-  fireworksSpread = parseInt(fireworksSpreadSlider.value);
+dustDensitySlider.addEventListener('input', () => {
+  dustDensity = parseInt(dustDensitySlider.value);
 });
+
+dustSpreadSlider.addEventListener('input', () => {
+  dustSpeed = parseInt(dustSpreadSlider.value);
+});
+
+dustSensitivitySlider.addEventListener('input', () => {
+  dustThreshold = 20 - parseInt(dustSensitivitySlider.value);
+});
+
+dustColorStartEl.addEventListener('input', () => {
+  dustHueStart = hexToHue(dustColorStartEl.value);
+});
+dustColorEndEl.addEventListener('input', () => {
+  dustHueEnd = hexToHue(dustColorEndEl.value);
+});
+
+// Dust mode tab switching
+const dustModeRadios = document.querySelectorAll('input[name="dustMode"]');
+const dustControlPanels = {
+  classic: document.getElementById('dustClassicControls'),
+  trails: document.getElementById('dustTrailsControls'),
+  glow: document.getElementById('dustGlowControls'),
+  outline: document.getElementById('dustOutlineControls'),
+  eruptions: document.getElementById('dustEruptionsControls'),
+};
+
+function switchDustMode(mode) {
+  dustMode = mode;
+  for (const [k, panel] of Object.entries(dustControlPanels)) {
+    panel.style.display = k === mode ? '' : 'none';
+  }
+  document.querySelectorAll('.dust-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.querySelector('input').value === mode);
+  });
+  resetFireworks();
+}
+
+dustModeRadios.forEach(radio => {
+  radio.addEventListener('change', () => switchDustMode(radio.value));
+});
+
+// Trails controls
+document.getElementById('trailLength').addEventListener('input', function() { trailLength = this.value / 100; });
+document.getElementById('trailSpeed').addEventListener('input', function() { trailSpeed = parseInt(this.value); });
+document.getElementById('trailDensity').addEventListener('input', function() { trailDensity = parseInt(this.value); });
+document.getElementById('trailColorStart').addEventListener('input', function() { trailHueStart = hexToHue(this.value); });
+document.getElementById('trailColorEnd').addEventListener('input', function() { trailHueEnd = hexToHue(this.value); });
+
+// Glow controls
+document.getElementById('glowIntensity').addEventListener('input', function() { glowIntensity = parseInt(this.value); });
+document.getElementById('glowDecay').addEventListener('input', function() { glowDecay = parseInt(this.value); });
+document.getElementById('glowColorStart').addEventListener('input', function() { glowHueStart = hexToHue(this.value); });
+document.getElementById('glowColorEnd').addEventListener('input', function() { glowHueEnd = hexToHue(this.value); });
+
+// Outline controls
+document.getElementById('outlineSpeed').addEventListener('input', function() { outlineSpeed = parseInt(this.value); });
+document.getElementById('outlineDensity').addEventListener('input', function() { outlineDensity = parseInt(this.value); });
+document.getElementById('outlineColorStart').addEventListener('input', function() { outlineHueStart = hexToHue(this.value); });
+document.getElementById('outlineColorEnd').addEventListener('input', function() { outlineHueEnd = hexToHue(this.value); });
+
+// Eruption controls
+document.getElementById('eruptThreshold').addEventListener('input', function() { eruptThreshold = parseInt(this.value); });
+document.getElementById('eruptSize').addEventListener('input', function() { eruptSize = parseInt(this.value); });
+document.getElementById('eruptColorStart').addEventListener('input', function() { eruptHueStart = hexToHue(this.value); });
+document.getElementById('eruptColorEnd').addEventListener('input', function() { eruptHueEnd = hexToHue(this.value); });
 
 function renderLoop(timestamp) {
   if (video.paused || video.ended) return;
   drawCurrentFrame(timestamp);
   animId = requestAnimationFrame(renderLoop);
 }
+
+// Config save/share via URL
+function getConfig() {
+  const cfg = {
+    bs: parseInt(document.getElementById('blockSize').value),
+    bl: parseInt(document.getElementById('blurSize').value),
+    le: document.getElementById('deltaToggle').checked,
+    ld: parseInt(document.getElementById('deltaSpeed').value),
+    lc1: document.getElementById('deltaColorStart').value,
+    lc2: document.getElementById('deltaColorEnd').value,
+    de: document.getElementById('dustToggle').checked,
+    dm: dustMode,
+    ds: parseInt(document.getElementById('dustSpeed').value),
+    dd: parseInt(document.getElementById('dustDensity').value),
+    dp: parseInt(document.getElementById('dustSpread').value),
+    dx: parseInt(document.getElementById('dustSensitivity').value),
+    dc1: document.getElementById('dustColorStart').value,
+    dc2: document.getElementById('dustColorEnd').value,
+    tl: parseInt(document.getElementById('trailLength').value),
+    ts: parseInt(document.getElementById('trailSpeed').value),
+    td: parseInt(document.getElementById('trailDensity').value),
+    tc1: document.getElementById('trailColorStart').value,
+    tc2: document.getElementById('trailColorEnd').value,
+    gi: parseInt(document.getElementById('glowIntensity').value),
+    gd: parseInt(document.getElementById('glowDecay').value),
+    gc1: document.getElementById('glowColorStart').value,
+    gc2: document.getElementById('glowColorEnd').value,
+    os: parseInt(document.getElementById('outlineSpeed').value),
+    od: parseInt(document.getElementById('outlineDensity').value),
+    oc1: document.getElementById('outlineColorStart').value,
+    oc2: document.getElementById('outlineColorEnd').value,
+    et: parseInt(document.getElementById('eruptThreshold').value),
+    eb: parseInt(document.getElementById('eruptSize').value),
+    ec1: document.getElementById('eruptColorStart').value,
+    ec2: document.getElementById('eruptColorEnd').value,
+  };
+  return cfg;
+}
+
+function applyConfig(cfg) {
+  if (cfg.bs != null) { blockSlider.value = cfg.bs; blockSize = cfg.bs; blockValue.textContent = cfg.bs; }
+  if (cfg.bl != null) { blurSlider.value = cfg.bl; blurRadius = cfg.bl; blurValueEl.textContent = cfg.bl; }
+  if (cfg.le != null) {
+    deltaToggle.checked = cfg.le;
+    deltaEnabled = cfg.le;
+    lingerBody.classList.toggle('disabled', !cfg.le);
+  }
+  if (cfg.ld != null) {
+    deltaSpeedSlider.value = cfg.ld;
+    deltaSweepDuration = cfg.ld / 100;
+    deltaFadeDuration = deltaSweepDuration * 0.5;
+  }
+  if (cfg.lc1 != null) { deltaColorStartEl.value = cfg.lc1; deltaHueStart = hexToHue(cfg.lc1); }
+  if (cfg.lc2 != null) { deltaColorEndEl.value = cfg.lc2; deltaHueEnd = hexToHue(cfg.lc2); }
+  if (cfg.de != null) {
+    dustToggle.checked = cfg.de;
+    dustEnabled = cfg.de;
+    dustBody.classList.toggle('disabled', !cfg.de);
+  }
+  if (cfg.dm != null) { switchDustMode(cfg.dm); }
+  if (cfg.ds != null) { dustSpeedSlider.value = cfg.ds; dustSpread = cfg.ds; }
+  if (cfg.dd != null) { dustDensitySlider.value = cfg.dd; dustDensity = cfg.dd; }
+  if (cfg.dp != null) { dustSpreadSlider.value = cfg.dp; dustSpeed = cfg.dp; }
+  if (cfg.dx != null) { dustSensitivitySlider.value = cfg.dx; dustThreshold = 20 - cfg.dx; }
+  if (cfg.dc1 != null) { dustColorStartEl.value = cfg.dc1; dustHueStart = hexToHue(cfg.dc1); }
+  if (cfg.dc2 != null) { dustColorEndEl.value = cfg.dc2; dustHueEnd = hexToHue(cfg.dc2); }
+  // Trails
+  if (cfg.tl != null) { document.getElementById('trailLength').value = cfg.tl; trailLength = cfg.tl / 100; }
+  if (cfg.ts != null) { document.getElementById('trailSpeed').value = cfg.ts; trailSpeed = cfg.ts; }
+  if (cfg.td != null) { document.getElementById('trailDensity').value = cfg.td; trailDensity = cfg.td; }
+  if (cfg.tc1 != null) { document.getElementById('trailColorStart').value = cfg.tc1; trailHueStart = hexToHue(cfg.tc1); }
+  if (cfg.tc2 != null) { document.getElementById('trailColorEnd').value = cfg.tc2; trailHueEnd = hexToHue(cfg.tc2); }
+  // Glow
+  if (cfg.gi != null) { document.getElementById('glowIntensity').value = cfg.gi; glowIntensity = cfg.gi; }
+  if (cfg.gd != null) { document.getElementById('glowDecay').value = cfg.gd; glowDecay = cfg.gd; }
+  if (cfg.gc1 != null) { document.getElementById('glowColorStart').value = cfg.gc1; glowHueStart = hexToHue(cfg.gc1); }
+  if (cfg.gc2 != null) { document.getElementById('glowColorEnd').value = cfg.gc2; glowHueEnd = hexToHue(cfg.gc2); }
+  // Outline
+  if (cfg.os != null) { document.getElementById('outlineSpeed').value = cfg.os; outlineSpeed = cfg.os; }
+  if (cfg.od != null) { document.getElementById('outlineDensity').value = cfg.od; outlineDensity = cfg.od; }
+  if (cfg.oc1 != null) { document.getElementById('outlineColorStart').value = cfg.oc1; outlineHueStart = hexToHue(cfg.oc1); }
+  if (cfg.oc2 != null) { document.getElementById('outlineColorEnd').value = cfg.oc2; outlineHueEnd = hexToHue(cfg.oc2); }
+  // Eruptions
+  if (cfg.et != null) { document.getElementById('eruptThreshold').value = cfg.et; eruptThreshold = cfg.et; }
+  if (cfg.eb != null) { document.getElementById('eruptSize').value = cfg.eb; eruptSize = cfg.eb; }
+  if (cfg.ec1 != null) { document.getElementById('eruptColorStart').value = cfg.ec1; eruptHueStart = hexToHue(cfg.ec1); }
+  if (cfg.ec2 != null) { document.getElementById('eruptColorEnd').value = cfg.ec2; eruptHueEnd = hexToHue(cfg.ec2); }
+}
+
+function loadConfigFromURL() {
+  const hash = location.hash.slice(1);
+  if (!hash.startsWith('cfg=')) return;
+  try {
+    const cfg = JSON.parse(atob(hash.slice(4)));
+    applyConfig(cfg);
+  } catch (e) { /* ignore malformed */ }
+}
+
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const cfg = getConfig();
+  const encoded = btoa(JSON.stringify(cfg));
+  location.hash = 'cfg=' + encoded;
+  const url = location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('shareBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Share'; }, 1500);
+  });
+});
+
+loadConfigFromURL();
 
 // Auto-load on page open
 loadVideo();

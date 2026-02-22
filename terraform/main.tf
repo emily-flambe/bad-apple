@@ -34,7 +34,14 @@ resource "cloudflare_workers_script" "bad_apple" {
 }
 
 resource "cloudflare_workers_script_subdomain" "bad_apple" {
-  account_id = var.cloudflare_account_id
+  account_id  = var.cloudflare_account_id
   script_name = cloudflare_workers_script.bad_apple.script_name
-  enabled    = true
+  enabled     = true
+}
+
+resource "cloudflare_workers_custom_domain" "bad_apple" {
+  account_id = var.cloudflare_account_id
+  hostname   = "bad-apple.emilycogsdill.com"
+  service    = cloudflare_workers_script.bad_apple.script_name
+  zone_id    = var.cloudflare_zone_id
 }

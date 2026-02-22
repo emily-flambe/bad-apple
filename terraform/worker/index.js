@@ -2,11 +2,11 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
 
-    // Serve R2 objects at /r2/<key>
-    if (url.pathname.startsWith("/r2/")) {
-      const key = decodeURIComponent(url.pathname.slice(4));
-      const ALLOWED_KEYS = new Set(["full_video.mp4"]);
-      if (!ALLOWED_KEYS.has(key)) return new Response("Not Found", { status: 404 });
+    // Serve video from R2
+    const R2_ROUTES = { "/media/source/bad_apple.mp4": "full_video.mp4" };
+    const r2Key = R2_ROUTES[url.pathname];
+    if (r2Key) {
+      const key = r2Key;
 
       const range = parseRange(req.headers.get("Range"));
       const obj = await env.VIDEO_BUCKET.get(key, range ? { range } : undefined);
