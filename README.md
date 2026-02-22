@@ -1,8 +1,8 @@
 # Bad Apple!!
 
-An interactive web visualization of the famous "Bad Apple!!" music video with color driven by pitch and geometry.
+An interactive web visualization of the famous "Bad Apple!!" music video with real-time effects.
 
-**[View it live →](https://bad-apple.emily-cogsdill.workers.dev)**
+**[View it live →](https://bad-apple.emilycogsdill.com)**
 
 ## What is this?
 
